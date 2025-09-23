@@ -18,7 +18,7 @@ public class RMIClient extends Client
 	private static String s_serverName = "Server";
 
 	//TODO: ADD YOUR GROUP NUMBER TO COMPILE
-	private static String s_rmiPrefix = "group_xx_";
+	private static String s_rmiPrefix = "group_10_";
 
 	public static void main(String args[])
 	{	
