@@ -1,2 +1,20 @@
 .DS_Store
+
+# IntelliJ / IDEA project files
 .idea/
+COMP-512.iml
+
+# Compiled Java classes
+Template/Server/Server/Common/Car.class
+Template/Server/Server/Common/Customer.class
+Template/Server/Server/Common/Flight.class
+Template/Server/Server/Common/RMHashMap.class
+Template/Server/Server/Common/RMItem.class
+Template/Server/Server/Common/ReservableItem.class
+Template/Server/Server/Common/ReservedItem.class
+Template/Server/Server/Common/ResourceManager.class
+Template/Server/Server/Common/Room.class
+Template/Server/Server/Common/Trace.class
+Template/Server/Server/Interface/IResourceManager.class
+Template/Server/Server/RMI/RMIResourceManager$1.class
+Template/Server/Server/RMI/RMIResourceManager.class
