@@ -49,7 +49,7 @@ public class ResourceManager implements IResourceManager
 		}
 	}
 
-	// Deletes the encar item
+	// Deletes the item
 	protected boolean deleteItem(String key)
 	{
 		Trace.info("RM::deleteItem(" + key + ") called");
