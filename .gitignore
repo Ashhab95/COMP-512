@@ -27,7 +27,4 @@ Template/Client/Client/Client$1.class
 Template/Client/Client/Client.class
 Template/Client/Client/Command.class
 Template/Client/Client/RMIClient.class
-Template/Server/Server/Common/
-Template/Server/Server/Interface/
-Template/Server/Server/RMI/
 Template/Server/RMIInterface.jar
