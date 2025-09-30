@@ -328,7 +328,26 @@ public class ResourceManager implements IResourceManager
 			return true;
 		}
 	}
+	//Removes Reservation
+	public boolean removeReservation(int customerID, String reserveditemKey, int reserveditemCount) throws RemoteException {
+		Trace.info("RM::removeReservation(" + customerID + ") removing " + reserveditemCount + " of " + reserveditemKey);
+		ReservableItem item = (ReservableItem)readData(reserveditemKey);
 
+		if (item == null) {
+			Trace.warn("RM::removeReservation(" + customerID + ") failed--item " + reserveditemKey + " doesn't exist");
+			return false;
+		}
+
+		Trace.info("RM::removeReservation(" + customerID + ") item " + reserveditemKey + " reserved " + item.getReserved() + " times, available " + item.getCount() + " times");
+
+		// Return inventory and decrease reserved count
+		item.setReserved(item.getReserved() - reserveditemCount);
+		item.setCount(item.getCount() + reserveditemCount);
+		writeData(item.getKey(), item);
+
+		Trace.info("RM::removeReservation(" + customerID + ") succeeded");
+		return true;
+	}
 	// Adds flight reservation to this customer
 	public boolean reserveFlight(int customerID, int flightNum) throws RemoteException
 	{

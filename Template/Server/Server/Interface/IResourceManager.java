@@ -208,4 +208,6 @@ public interface IResourceManager extends Remote
      */
     public String getName()
         throws RemoteException;
+
+    public boolean removeReservation(int customerID, String reserveditemKey, int reserveditemCount) throws RemoteException;
 }

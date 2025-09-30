@@ -9,6 +9,7 @@ import java.rmi.NotBoundException;
 
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
+import java.util.Vector;
 
 public class MiddleWare extends ResourceManager {
 
@@ -240,49 +241,118 @@ public class MiddleWare extends ResourceManager {
 
          return false;
      }
+
     @Override
     public boolean deleteCustomer(int customerID) throws RemoteException {
         Trace.info("MW::deleteCustomer(" + customerID + ") called");
 
-        // Check if customer exists
         Customer customer = (Customer)readData(Customer.getKey(customerID));
         if (customer == null) {
             Trace.warn("MW::deleteCustomer(" + customerID + ") failed--customer doesn't exist");
             return false;
         }
-
-        // Clean up reservations in each RM
         RMHashMap reservations = customer.getReservations();
         for (String reservedKey : reservations.keySet()) {
             ReservedItem reservedItem = customer.getReservedItem(reservedKey);
 
-            // Determine which RM this reservation belongs to based on key prefix
             try {
                 if (reservedKey.startsWith("flight-")) {
-                    // Create temporary customer in flight RM, then delete to clean up reservations
-                    flightRM.newCustomer(customerID);
-                    flightRM.deleteCustomer(customerID);
-                    Trace.info("MW::deleteCustomer(" + customerID + ") cleaned flight reservations");
+                    flightRM.removeReservation(customerID, reservedItem.getKey(), reservedItem.getCount());
                 }
                 else if (reservedKey.startsWith("car-")) {
-                    carRM.newCustomer(customerID);
-                    carRM.deleteCustomer(customerID);
-                    Trace.info("MW::deleteCustomer(" + customerID + ") cleaned car reservations");
+                    carRM.removeReservation(customerID, reservedItem.getKey(), reservedItem.getCount());
                 }
                 else if (reservedKey.startsWith("room-")) {
-                    roomRM.newCustomer(customerID);
-                    roomRM.deleteCustomer(customerID);
-                    Trace.info("MW::deleteCustomer(" + customerID + ") cleaned room reservations");
+                    roomRM.removeReservation(customerID, reservedItem.getKey(), reservedItem.getCount());
                 }
             } catch (Exception e) {
-                Trace.warn("MW::deleteCustomer(" + customerID + ") error cleaning reservations for " + reservedKey + ": " + e.getMessage());
-                // Continue with other reservations even if one fails
+                Trace.warn("MW::deleteCustomer(" + customerID + ") error removing reservation: " + e.getMessage());
             }
         }
 
         // Remove customer from middleware
         removeData(customer.getKey());
         Trace.info("MW::deleteCustomer(" + customerID + ") succeeded");
+        return true;
+    }
+    @Override
+    public boolean bundle(int customerID, Vector<String> flightNumbers, String location, boolean car, boolean room) throws RemoteException {
+        Trace.info("MW::bundle(" + customerID + ", flights=" + flightNumbers + ", location=" + location + ", car=" + car + ", room=" + room + ") called");
+
+
+        Customer customer = (Customer)readData(Customer.getKey(customerID));
+        if (customer == null) {
+            Trace.warn("MW::bundle(" + customerID + ") failed--customer doesn't exist");
+            return false;
+        }
+
+        // Check if Flights are available
+        for (String flightNumStr : flightNumbers) {
+            try {
+                int flightNum = Integer.parseInt(flightNumStr);
+                int available = flightRM.queryFlight(flightNum);
+                int price = flightRM.queryFlightPrice(flightNum);
+
+                if (available <= 0 || price <= 0) {
+                    Trace.warn("MW::bundle(" + customerID + ") failed--flight " + flightNum + " not available");
+                    return false;
+                }
+            } catch (NumberFormatException e) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--invalid flight number: " + flightNumStr);
+                return false;
+            }
+        }
+
+        // Check if car is available
+        if (car) {
+            int available = carRM.queryCars(location);
+            int price = carRM.queryCarsPrice(location);
+            if (available <= 0 || price <= 0) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--no cars available at " + location);
+                return false;
+            }
+        }
+
+        // Check if room is available
+        if (room) {
+            int available = roomRM.queryRooms(location);
+            int price = roomRM.queryRoomsPrice(location);
+            if (available <= 0 || price <= 0) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--no rooms available at " + location);
+                return false;
+            }
+        }
+
+
+        // Reserve  flights
+        for (String flightNumStr : flightNumbers) {
+            int flightNum = Integer.parseInt(flightNumStr);
+            if (!reserveFlight(customerID, flightNum)) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve flight " + flightNum);
+                // TODO: Proper rollback mechanism would undo previous reservations
+                return false;
+            }
+        }
+
+        // Reserve car
+        if (car) {
+            if (!reserveCar(customerID, location)) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve car at " + location);
+                // TODO: Rollback flights
+                return false;
+            }
+        }
+
+        // Reserve room
+        if (room) {
+            if (!reserveRoom(customerID, location)) {
+                Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve room at " + location);
+                // TODO: Rollback flights and car
+                return false;
+            }
+        }
+
+        Trace.info("MW::bundle(" + customerID + ") succeeded");
         return true;
     }
 }
