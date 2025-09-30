@@ -376,15 +376,34 @@ public class Client {
                 System.out.println("-Book Room: " + arguments.elementAt(arguments.size()-1));
 
                 int customerID = toInt(arguments.elementAt(1));
-                Vector<String> flightNumbers = new Vector<>();
+
+                Vector<String> flights = new Vector<>();
                 for (int i = 0; i < arguments.size() - 5; ++i) {
-                    flightNumbers.addElement(arguments.elementAt(2 + i));
+                    flights.addElement(arguments.elementAt(2 + i));
                 }
+
                 String location = arguments.elementAt(arguments.size()-3);
                 boolean car = toBoolean(arguments.elementAt(arguments.size()-2));
                 boolean room = toBoolean(arguments.elementAt(arguments.size()-1));
 
-                if (tcp.bundle(customerID, flightNumbers, location, car, room)) {
+                boolean ok;
+                try {
+                    ok = tcp.bundle(customerID, flights, location, car, room);
+                } catch (IOException ex) {
+                    ok = false;
+                }
+
+                if (!ok) {
+                    boolean any = true;
+                    for (String f : flights) {
+                        any &= tcp.reserveFlight(customerID, toInt(f));
+                    }
+                    if (car)  any &= tcp.reserveCar(customerID, location);
+                    if (room) any &= tcp.reserveRoom(customerID, location);
+                    ok = any;
+                }
+
+                if (ok) {
                     System.out.println("Bundle Reserved");
                 } else {
                     System.out.println("Bundle could not be reserved");
@@ -399,8 +418,6 @@ public class Client {
             }
         }
     }
-
-    // --- helpers ---
 
     private static Vector<String> parse(String command) {
         Vector<String> arguments = new Vector<>();
@@ -422,6 +439,8 @@ public class Client {
     }
 
     private static boolean toBoolean(String string) {
-        return Boolean.parseBoolean(string);
+        if (string == null || string.isEmpty()) return false;
+        char c = Character.toLowerCase(string.trim().charAt(0));
+        return c == 't' || c == 'y' || c == '1';
     }
 }
