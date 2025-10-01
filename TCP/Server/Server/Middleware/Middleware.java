@@ -202,7 +202,7 @@ public class Middleware extends ResourceManager {
             RMHashMap reservations = c.getReservations();
             for (String reservedKey : reservations.keySet()) {
                 ReservedItem r = c.getReservedItem(reservedKey);
-                String key   = r.getKey();   // e.g., "flight-123", "car-YYZ", "room-YYZ"
+                String key   = r.getKey();
                 int count    = r.getCount();
 
                 try {
@@ -356,7 +356,6 @@ public class Middleware extends ResourceManager {
         int carPrice = -1, roomPrice = -1;
 
         try {
-            // 1. Check flight prices
             for (String fnStr : flightNumbers) {
                 int fn = Integer.parseInt(fnStr);
                 int price = flightRM.sendInt("queryFlightPrice", fn);
@@ -368,7 +367,6 @@ public class Middleware extends ResourceManager {
                 flightPrices.put(fn, price);
             }
 
-            // 2. Check car
             if (car) {
                 carPrice = carRM.sendInt("queryCarsPrice", location);
                 Trace.info("MW::bundle checking cars at " + location + " price=" + carPrice);
@@ -378,7 +376,6 @@ public class Middleware extends ResourceManager {
                 }
             }
 
-            // 3. Check room
             if (room) {
                 roomPrice = roomRM.sendInt("queryRoomsPrice", location);
                 Trace.info("MW::bundle checking rooms at " + location + " price=" + roomPrice);
@@ -388,7 +385,6 @@ public class Middleware extends ResourceManager {
                 }
             }
 
-            // 4. Reserve flights
             for (Integer fn : flightPrices.keySet()) {
                 Trace.info("MW::bundle trying reserveFlight(" + fn + ")");
                 if (!flightRM.sendBool("reserveFlight", customerID, fn)) {
@@ -400,7 +396,6 @@ public class Middleware extends ResourceManager {
                 Trace.info("MW::bundle reserved flight " + fn);
             }
 
-            // 5. Reserve car
             if (car) {
                 Trace.info("MW::bundle trying reserveCar(" + location + ")");
                 if (!carRM.sendBool("reserveCar", customerID, location)) {
@@ -412,7 +407,6 @@ public class Middleware extends ResourceManager {
                 Trace.info("MW::bundle reserved car at " + location);
             }
 
-            // 6. Reserve room
             if (room) {
                 Trace.info("MW::bundle trying reserveRoom(" + location + ")");
                 if (!roomRM.sendBool("reserveRoom", customerID, location)) {
@@ -436,7 +430,6 @@ public class Middleware extends ResourceManager {
             return false;
         }
 
-        // 7. Update local customer state
         Trace.info("MW::bundle all reservations succeeded, updating customer " + customerID);
         synchronized (c) {
             for (Integer fn : flightPrices.keySet()) {
