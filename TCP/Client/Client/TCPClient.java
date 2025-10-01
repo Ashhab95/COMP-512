@@ -6,7 +6,6 @@ import java.util.Vector;
 
 public class TCPClient {
 
-    // Defaults; can be overridden via main() args
     private static String s_serverHost = "localhost";
     private static int    s_serverPort = 5000;
 
@@ -129,18 +128,15 @@ public class TCPClient {
     private static String stringResp(String raw) throws IOException {
         ensureOk(raw);
 
-        // DO NOT strip whitespace globally; it removes spaces inside the response string!
-        // Work on the original JSON and find the "response" string value.
         int k = raw.indexOf("\"response\":\"");
         if (k < 0) {
-            // allow null response for empty bill
             if (raw.contains("\"response\":null")) {
                 return "";
             }
             throw new IOException("Expected string response");
         }
 
-        int p = k + 12; // after the opening quote of the string value
+        int p = k + 12;
         StringBuilder sb = new StringBuilder();
         boolean esc = false;
 
