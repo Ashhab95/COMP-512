@@ -118,7 +118,8 @@ public class TCPResourceManager {
                     return rm.queryRoomsPrice(s(a,0));
                 case "reserveRoom":
                     return rm.reserveRoom(i(a,0), s(a,1)); // customerID ignored by RM
-
+                case "removeReservation":
+                    return rm.removeReservation(i(a,0), s(a,1), i(a,2));
                 case "bundle":
                     throw new IllegalArgumentException("bundle not supported at RM");
 

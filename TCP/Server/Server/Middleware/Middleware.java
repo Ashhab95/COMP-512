@@ -202,24 +202,21 @@ public class Middleware extends ResourceManager {
             RMHashMap reservations = c.getReservations();
             for (String reservedKey : reservations.keySet()) {
                 ReservedItem r = c.getReservedItem(reservedKey);
-                String key = r.getKey();
-                int count = r.getCount();
+                String key   = r.getKey();   // e.g., "flight-123", "car-YYZ", "room-YYZ"
+                int count    = r.getCount();
 
                 try {
                     if (key.startsWith("flight-")) {
-                        int flightNum = Integer.parseInt(key.substring("flight-".length()));
-                        flightRM.sendBool("addFlight", flightNum, count, 0);
+                        flightRM.sendBool("removeReservation", customerID, key, count);
                     } else if (key.startsWith("car-")) {
-                        String loc = key.substring("car-".length());
-                        carRM.sendBool("addCars", loc, count, 0);
+                        carRM.sendBool("removeReservation", customerID, key, count);
                     } else if (key.startsWith("room-")) {
-                        String loc = key.substring("room-".length());
-                        roomRM.sendBool("addRooms", loc, count, 0);
+                        roomRM.sendBool("removeReservation", customerID, key, count);
                     } else {
                         Trace.warn("MW::deleteCustomer unknown key type: " + key);
                     }
                 } catch (IOException e) {
-                    Trace.warn("MW::deleteCustomer rollback failed for " + key + ": " + e.getMessage());
+                    Trace.warn("MW::deleteCustomer removeReservation failed for " + key + ": " + e.getMessage());
                 }
             }
 
@@ -229,6 +226,7 @@ public class Middleware extends ResourceManager {
         Trace.info("MW::deleteCustomer(" + customerID + ") succeeded");
         return true;
     }
+
 
     @Override
     public String queryCustomerInfo(int customerID) {
@@ -387,7 +385,7 @@ public class Middleware extends ResourceManager {
             for (Integer fn : flightPrices.keySet()) {
                 if (!flightRM.sendBool("reserveFlight", customerID, fn)) {
                     Trace.warn("MW::bundle failed -- reserveFlight failed for " + fn);
-                    rollbackFlights(reservedFlights);
+                    rollbackFlights(reservedFlights, customerID);
                     return false;
                 }
                 reservedFlights.add(fn);
@@ -396,7 +394,7 @@ public class Middleware extends ResourceManager {
             if (car) {
                 if (!carRM.sendBool("reserveCar", customerID, location)) {
                     Trace.warn("MW::bundle failed -- reserveCar failed");
-                    rollbackFlights(reservedFlights);
+                    rollbackFlights(reservedFlights, customerID);
                     return false;
                 }
                 reservedCar = true;
@@ -405,8 +403,8 @@ public class Middleware extends ResourceManager {
             if (room) {
                 if (!roomRM.sendBool("reserveRoom", customerID, location)) {
                     Trace.warn("MW::bundle failed -- reserveRoom failed");
-                    if (reservedCar) releaseCar(location);
-                    rollbackFlights(reservedFlights);
+                    if (reservedCar) releaseCar(location, customerID);
+                    rollbackFlights(reservedFlights, customerID);
                     return false;
                 }
                 reservedRoom = true;
@@ -414,9 +412,9 @@ public class Middleware extends ResourceManager {
 
         } catch (IOException e) {
             Trace.warn("MW::bundle comms failed: " + e.getMessage());
-            if (reservedRoom) releaseRoom(location);
-            if (reservedCar)  releaseCar(location);
-            rollbackFlights(reservedFlights);
+            if (reservedRoom) releaseRoom(location, customerID);
+            if (reservedCar)  releaseCar(location, customerID);
+            rollbackFlights(reservedFlights, customerID);
             return false;
         } catch (NumberFormatException ne) {
             Trace.warn("MW::bundle parse flight number failed: " + ne.getMessage());
@@ -434,16 +432,27 @@ public class Middleware extends ResourceManager {
         return true;
     }
 
-    private void rollbackFlights(List<Integer> reservedFlights) {
+    private void rollbackFlights(List<Integer> reservedFlights, int customerID) {
         for (Integer fn : reservedFlights) {
-            try { flightRM.sendBool("addFlight", fn, 1, 0); } catch (IOException ignored) {}
+            try {
+                String key = Flight.getKey(fn);
+                flightRM.sendBool("removeReservation", customerID, key, 1);
+            } catch (IOException ignored) {}
         }
     }
-    private void releaseCar(String location) {
-        try { carRM.sendBool("addCars", location, 1, 0); } catch (IOException ignored) {}
+
+    private void releaseCar(String location, int customerID) {
+        try {
+            String key = Car.getKey(location);
+            carRM.sendBool("removeReservation", customerID, key, 1);
+        } catch (IOException ignored) {}
     }
-    private void releaseRoom(String location) {
-        try { roomRM.sendBool("addRooms", location, 1, 0); } catch (IOException ignored) {}
+
+    private void releaseRoom(String location, int customerID) {
+        try {
+            String key = Room.getKey(location);
+            roomRM.sendBool("removeReservation", customerID, key, 1);
+        } catch (IOException ignored) {}
     }
 
     @Override
