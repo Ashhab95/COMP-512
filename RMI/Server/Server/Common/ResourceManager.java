@@ -340,7 +340,6 @@ public class ResourceManager implements IResourceManager
 
 		Trace.info("RM::removeReservation(" + customerID + ") item " + reserveditemKey + " reserved " + item.getReserved() + " times, available " + item.getCount() + " times");
 
-		// Return inventory and decrease reserved count
 		item.setReserved(item.getReserved() - reserveditemCount);
 		item.setCount(item.getCount() + reserveditemCount);
 		writeData(item.getKey(), item);
