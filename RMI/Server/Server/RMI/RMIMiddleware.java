@@ -28,15 +28,13 @@ public class RMIMiddleware extends MiddleWare
         String carHost = args[1];
         String roomHost = args[2];
 
-        // Create the RMI server entry
         try {
             RMIMiddleware middleware = new RMIMiddleware(s_serverName);
             middleware.connectToResourceManagers(flightHost, carHost, roomHost);
 
-            // Export object on auto-assigned port (not 3010)
             IResourceManager resourceManager = (IResourceManager)UnicastRemoteObject.exportObject(middleware, 0);
 
-            // Bind to existing registry on port 3010
+            // Bind to existing registry 
             Registry l_registry = LocateRegistry.getRegistry(3010);
             final Registry registry = l_registry;
             registry.rebind(s_rmiPrefix + s_serverName, resourceManager);

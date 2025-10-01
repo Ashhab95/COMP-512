@@ -19,12 +19,10 @@ public class MiddleWare extends ResourceManager {
     protected IResourceManager roomRM = null;
 
 
-    // RMI configuration
     private static String serverName = "Middleware";
     private static String rmiPrefix = "group_10_"; // TODO: Change to your group number
     private static int rmiPort = 3010;
 
-    // Constructor
     public MiddleWare(String name) {
         super(name);
     }
@@ -52,7 +50,7 @@ public class MiddleWare extends ResourceManager {
                              System.err.println("Unknown server type: " + type);
                              return;
                      }
-                     break; // Connection successful, exit retry loop
+                     break;
                  }
                  catch (NotBoundException|RemoteException e) {
                      if (first) {
@@ -60,7 +58,7 @@ public class MiddleWare extends ResourceManager {
                          first = false;
                      }
                  }
-                 Thread.sleep(500); // Wait before retrying
+                 Thread.sleep(500);
              }
          }
          catch (Exception e) {
@@ -84,7 +82,7 @@ public class MiddleWare extends ResourceManager {
          connectServer("Room", roomHost, 3010, "group_10_Rooms");
      }
     public String getName() throws RemoteException {
-        return m_name;  // Required by interface
+        return m_name;
     }
      @Override
      public boolean addFlight(int flightNum, int flightSeats, int flightPrice) throws RemoteException {
@@ -182,21 +180,20 @@ public class MiddleWare extends ResourceManager {
      public boolean reserveCar(int customerID, String location) throws RemoteException {
          Trace.info("MW::reserveCar(" + customerID + ", " + location + ") called");
 
-         // Check if customer exists locally
+
          Customer customer = (Customer)readData(Customer.getKey(customerID));
          if (customer == null) {
              Trace.warn("MW::reserveCar(" + customerID + ", " + location + ") failed--customer doesn't exist");
              return false;
          }
 
-         // Get price from car RM
+
          int carPrice = carRM.queryCarsPrice(location);
          if (carPrice <= 0) {
              Trace.warn("MW::reserveCar(" + customerID + ", " + location + ") failed--location doesn't exist");
              return false;
          }
 
-         // Delegate reservation to car RM
          if (carRM.reserveCar(customerID, location)) {
              // Update customer's reservation list locally
              String key = Car.getKey(location);
@@ -214,21 +211,21 @@ public class MiddleWare extends ResourceManager {
      public boolean reserveRoom(int customerID, String location) throws RemoteException {
          Trace.info("MW::reserveRoom(" + customerID + ", " + location + ") called");
 
-         // Check if customer exists locally
+
          Customer customer = (Customer)readData(Customer.getKey(customerID));
          if (customer == null) {
              Trace.warn("MW::reserveRoom(" + customerID + ", " + location + ") failed--customer doesn't exist");
              return false;
          }
 
-         // Get price from room RM
+
          int roomPrice = roomRM.queryRoomsPrice(location);
          if (roomPrice <= 0) {
              Trace.warn("MW::reserveRoom(" + customerID + ", " + location + ") failed--location doesn't exist");
              return false;
          }
 
-         // Delegate reservation to room RM
+
          if (roomRM.reserveRoom(customerID, location)) {
              // COPY: Update customer's reservation list locally
              String key = Room.getKey(location);
@@ -270,7 +267,6 @@ public class MiddleWare extends ResourceManager {
             }
         }
 
-        // Remove customer from middleware
         removeData(customer.getKey());
         Trace.info("MW::deleteCustomer(" + customerID + ") succeeded");
         return true;
@@ -286,7 +282,6 @@ public class MiddleWare extends ResourceManager {
             return false;
         }
 
-        // Check if Flights are available
         for (String flightNumStr : flightNumbers) {
             try {
                 int flightNum = Integer.parseInt(flightNumStr);
@@ -303,7 +298,6 @@ public class MiddleWare extends ResourceManager {
             }
         }
 
-        // Check if car is available
         if (car) {
             int available = carRM.queryCars(location);
             int price = carRM.queryCarsPrice(location);
@@ -313,7 +307,6 @@ public class MiddleWare extends ResourceManager {
             }
         }
 
-        // Check if room is available
         if (room) {
             int available = roomRM.queryRooms(location);
             int price = roomRM.queryRoomsPrice(location);
@@ -324,12 +317,10 @@ public class MiddleWare extends ResourceManager {
         }
 
 
-        // Reserve  flights
         for (String flightNumStr : flightNumbers) {
             int flightNum = Integer.parseInt(flightNumStr);
             if (!reserveFlight(customerID, flightNum)) {
                 Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve flight " + flightNum);
-                // TODO: Proper rollback mechanism would undo previous reservations
                 return false;
             }
         }
@@ -338,7 +329,6 @@ public class MiddleWare extends ResourceManager {
         if (car) {
             if (!reserveCar(customerID, location)) {
                 Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve car at " + location);
-                // TODO: Rollback flights
                 return false;
             }
         }
@@ -347,7 +337,6 @@ public class MiddleWare extends ResourceManager {
         if (room) {
             if (!reserveRoom(customerID, location)) {
                 Trace.warn("MW::bundle(" + customerID + ") failed--could not reserve room at " + location);
-                // TODO: Rollback flights and car
                 return false;
             }
         }
