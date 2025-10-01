@@ -1,7 +1,7 @@
 # macOS
 .DS_Store
 **/.DS_Store
-Template/.DS_Store
+RMI/.DS_Store
 
 # IntelliJ IDEA
 .idea/
@@ -23,8 +23,8 @@ Template/.DS_Store
 /.mvn/
 
 # Specific compiled artifacts & jar
-Template/Client/Client/Client$1.class
-Template/Client/Client/Client.class
-Template/Client/Client/Command.class
-Template/Client/Client/RMIClient.class
-Template/Server/RMIInterface.jar
+RMI/Client/Client/Client$1.class
+RMI/Client/Client/Client.class
+RMI/Client/Client/Command.class
+RMI/Client/Client/RMIClient.class
+RMI/Server/RMIInterface.jar
