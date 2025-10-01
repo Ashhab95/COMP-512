@@ -188,6 +188,9 @@ public class TCPMiddleware {
                     return mw.reserveRoom(toInt(a,0), toStr(a,1));
 
                 case "bundle": {
+                    if (a.length < 5) {
+                        throw new IllegalArgumentException("bundle requires 5 args: customerID, flights[], location, car, room");
+                    }
                     int customerID = toInt(a,0);
                     @SuppressWarnings("unchecked")
                     Vector<String> flights = toStringVector(a[1]);
@@ -355,40 +358,82 @@ public class TCPMiddleware {
             String needle = "\"" + field + "\":[";
             int i = json.indexOf(needle);
             if (i < 0) return new Object[0];
+
             int p = i + needle.length();
             ArrayList<Object> out = new ArrayList<>();
-            StringBuilder token = new StringBuilder();
-            boolean inString = false, esc = false;
+            StringBuilder tok = new StringBuilder();
+            boolean inStr = false, esc = false;
+            int depth = 0; // track nested [] or {}
 
             for (; p < json.length(); p++) {
                 char c = json.charAt(p);
-                if (inString) {
-                    if (esc) { token.append(c); esc = false; continue; }
+
+                if (inStr) {
+                    if (esc) { tok.append(c); esc = false; continue; }
                     if (c == '\\') { esc = true; continue; }
-                    if (c == '"') { // end of string
-                        out.add(token.toString());
-                        token.setLength(0);
-                        inString = false;
-                        continue;
-                    }
-                    token.append(c);
+                    if (c == '"') { inStr = false; continue; }
+                    tok.append(c);
                     continue;
                 }
-                if (c == '"') { inString = true; continue; }
-                if (c == ']') {
-                    String t = token.toString().trim();
-                    if (!t.isEmpty()) out.add(parsePrimitive(t));
+
+                if (c == '"') { inStr = true; continue; }
+
+                if (c == '[' || c == '{') { depth++; tok.append(c); continue; }
+                if (c == ']' || c == '}') {
+                    if (depth > 0) { depth--; tok.append(c); continue; }
+                    String t = tok.toString().trim();
+                    if (!t.isEmpty()) out.add(parseTopLevelArg(t));
                     break;
                 }
-                if (c == ',') {
-                    String t = token.toString().trim();
-                    if (!t.isEmpty()) out.add(parsePrimitive(t));
-                    token.setLength(0);
+
+                if (c == ',' && depth == 0) {
+                    String t = tok.toString().trim();
+                    if (!t.isEmpty()) out.add(parseTopLevelArg(t));
+                    tok.setLength(0);
                     continue;
                 }
-                token.append(c);
+
+                tok.append(c);
             }
+
             return out.toArray();
+        }
+
+        private static Object parseTopLevelArg(String t) {
+            if ("true".equals(t)) return Boolean.TRUE;
+            if ("false".equals(t)) return Boolean.FALSE;
+            if ("null".equals(t)) return null;
+            try {
+                if (!t.isEmpty() && (t.charAt(0) == '-' || Character.isDigit(t.charAt(0)))) {
+                    return Integer.parseInt(t);
+                }
+            } catch (Exception ignored) {}
+
+            if (t.startsWith("[") && t.endsWith("]")) {
+                String inner = t.substring(1, t.length() - 1).trim();
+                ArrayList<String> list = new ArrayList<>();
+                StringBuilder sb = new StringBuilder();
+                boolean inStr = false, esc = false;
+                for (int i = 0; i < inner.length(); i++) {
+                    char c = inner.charAt(i);
+                    if (inStr) {
+                        if (esc) { sb.append(c); esc = false; continue; }
+                        if (c == '\\') { esc = true; continue; }
+                        if (c == '"') { inStr = false; continue; }
+                        sb.append(c);
+                        continue;
+                    }
+                    if (c == '"') { inStr = true; continue; }
+                    if (c == ',') { list.add(sb.toString()); sb.setLength(0); continue; }
+                    sb.append(c);
+                }
+                if (!sb.isEmpty()) list.add(sb.toString());
+                Vector<String> v = new Vector<>();
+                for (String s : list) v.add(s.trim());
+                return v;
+            }
+
+            return t;
         }
 
         private static Object parsePrimitive(String t) {

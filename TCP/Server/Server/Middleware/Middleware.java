@@ -356,9 +356,11 @@ public class Middleware extends ResourceManager {
         int carPrice = -1, roomPrice = -1;
 
         try {
+            // 1. Check flight prices
             for (String fnStr : flightNumbers) {
                 int fn = Integer.parseInt(fnStr);
                 int price = flightRM.sendInt("queryFlightPrice", fn);
+                Trace.info("MW::bundle checking flight " + fn + " price=" + price);
                 if (price <= 0) {
                     Trace.warn("MW::bundle failed -- flight " + fn + " unavailable");
                     return false;
@@ -366,41 +368,53 @@ public class Middleware extends ResourceManager {
                 flightPrices.put(fn, price);
             }
 
+            // 2. Check car
             if (car) {
                 carPrice = carRM.sendInt("queryCarsPrice", location);
+                Trace.info("MW::bundle checking cars at " + location + " price=" + carPrice);
                 if (carPrice <= 0) {
                     Trace.warn("MW::bundle failed -- car at " + location + " unavailable");
                     return false;
                 }
             }
 
+            // 3. Check room
             if (room) {
                 roomPrice = roomRM.sendInt("queryRoomsPrice", location);
+                Trace.info("MW::bundle checking rooms at " + location + " price=" + roomPrice);
                 if (roomPrice <= 0) {
                     Trace.warn("MW::bundle failed -- room at " + location + " unavailable");
                     return false;
                 }
             }
 
+            // 4. Reserve flights
             for (Integer fn : flightPrices.keySet()) {
+                Trace.info("MW::bundle trying reserveFlight(" + fn + ")");
                 if (!flightRM.sendBool("reserveFlight", customerID, fn)) {
                     Trace.warn("MW::bundle failed -- reserveFlight failed for " + fn);
                     rollbackFlights(reservedFlights, customerID);
                     return false;
                 }
                 reservedFlights.add(fn);
+                Trace.info("MW::bundle reserved flight " + fn);
             }
 
+            // 5. Reserve car
             if (car) {
+                Trace.info("MW::bundle trying reserveCar(" + location + ")");
                 if (!carRM.sendBool("reserveCar", customerID, location)) {
                     Trace.warn("MW::bundle failed -- reserveCar failed");
                     rollbackFlights(reservedFlights, customerID);
                     return false;
                 }
                 reservedCar = true;
+                Trace.info("MW::bundle reserved car at " + location);
             }
 
+            // 6. Reserve room
             if (room) {
+                Trace.info("MW::bundle trying reserveRoom(" + location + ")");
                 if (!roomRM.sendBool("reserveRoom", customerID, location)) {
                     Trace.warn("MW::bundle failed -- reserveRoom failed");
                     if (reservedCar) releaseCar(location, customerID);
@@ -408,6 +422,7 @@ public class Middleware extends ResourceManager {
                     return false;
                 }
                 reservedRoom = true;
+                Trace.info("MW::bundle reserved room at " + location);
             }
 
         } catch (IOException e) {
@@ -421,16 +436,26 @@ public class Middleware extends ResourceManager {
             return false;
         }
 
-        // Update local customer state after all succeeded
+        // 7. Update local customer state
+        Trace.info("MW::bundle all reservations succeeded, updating customer " + customerID);
         synchronized (c) {
             for (Integer fn : flightPrices.keySet()) {
+                Trace.info("MW::bundle recording flight " + fn + " into customer " + customerID);
                 c.reserve(Flight.getKey(fn), String.valueOf(fn), flightPrices.get(fn));
             }
-            if (reservedCar)  c.reserve(Car.getKey(location),  location,  carPrice);
-            if (reservedRoom) c.reserve(Room.getKey(location), location,  roomPrice);
+            if (reservedCar) {
+                Trace.info("MW::bundle recording car at " + location + " into customer " + customerID);
+                c.reserve(Car.getKey(location), location, carPrice);
+            }
+            if (reservedRoom) {
+                Trace.info("MW::bundle recording room at " + location + " into customer " + customerID);
+                c.reserve(Room.getKey(location), location, roomPrice);
+            }
         }
+        Trace.info("MW::bundle(" + customerID + ") succeeded");
         return true;
     }
+
 
     private void rollbackFlights(List<Integer> reservedFlights, int customerID) {
         for (Integer fn : reservedFlights) {

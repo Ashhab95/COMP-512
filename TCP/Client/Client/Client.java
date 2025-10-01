@@ -390,17 +390,9 @@ public class Client {
                 try {
                     ok = tcp.bundle(customerID, flights, location, car, room);
                 } catch (IOException ex) {
+                    System.err.println("Bundle request failed: " + ex.getMessage());
+                    ex.printStackTrace();
                     ok = false;
-                }
-
-                if (!ok) {
-                    boolean any = true;
-                    for (String f : flights) {
-                        any &= tcp.reserveFlight(customerID, toInt(f));
-                    }
-                    if (car)  any &= tcp.reserveCar(customerID, location);
-                    if (room) any &= tcp.reserveRoom(customerID, location);
-                    ok = any;
                 }
 
                 if (ok) {
