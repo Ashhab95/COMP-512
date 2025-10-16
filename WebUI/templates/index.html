@@ -1,0 +1,854 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>COMP-512 · Travel Reservation System</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg: hsl(248 57% 98%);
+      --card: hsl(0 0% 100% / 0.75);
+      --text: hsl(230 15% 18%);
+      --muted: hsl(230 10% 45%);
+      --border: hsl(230 20% 92%);
+      --brand-1: hsl(248 86% 66%);
+      --brand-2: hsl(269 72% 60%);
+      --success: hsl(160 84% 39%);
+      --danger: hsl(0 84% 60%);
+      --shadow: 0 10px 30px hsl(240 30% 20% / .18);
+      --radius: 16px; --radius-sm: 10px; --radius-lg: 24px;
+      --space: clamp(16px, 1.2vw + 12px, 28px);
+      --grid-max: 1280px;
+      --control-h: 48px; /* <= uniform input/button height */
+      --trans: 240ms cubic-bezier(.22,1,.36,1);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg: linear-gradient(135deg, hsl(248 45% 14%), hsl(269 38% 18%)) fixed;
+        --card: hsl(0 0% 100% / 0.06);
+        --text: hsl(0 0% 96%); --muted: hsl(0 0% 80% / .72);
+        --border: hsl(0 0% 100% / .08);
+        --shadow: 0 12px 40px hsl(250 50% 8% / .45);
+      }
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Inter,Roboto,Arial;
+      color:var(--text); background:var(--bg); line-height:1.35;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    .wrap{max-width:var(--grid-max); margin-inline:auto; padding:calc(var(--space)*1.25)}
+
+    /* Hero */
+    .hero{
+      position:relative; border-radius:var(--radius-lg);
+      padding:clamp(28px,4vw,56px);
+      background:
+        radial-gradient(1200px 600px at 20% -10%, hsl(248 100% 60% / .25), transparent 60%),
+        radial-gradient(1200px 700px at 80% -10%, hsl(269 100% 60% / .18), transparent 60%),
+        var(--card);
+      box-shadow:var(--shadow); backdrop-filter:blur(8px);
+      border:1px solid var(--border); overflow:hidden; isolation:isolate;
+    }
+    .hero h1{font-size:clamp(28px,3.2vw,44px); letter-spacing:-.02em; margin:0 0 8px}
+    .subtitle{color:var(--muted); font-size:15px}
+    .stats{
+      display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:var(--space); margin-top:var(--space);
+    }
+    @media (max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    .stat{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px}
+    .stat .num{font-weight:800; font-size:clamp(24px,2.4vw,36px)}
+    .stat .label{color:var(--muted); font-size:13px}
+
+    /* Shell */
+    .shell{display:grid; grid-template-columns:240px 1fr; gap:var(--space); margin-top:var(--space)}
+    @media (max-width:980px){.shell{grid-template-columns:1fr}}
+    .sidebar{
+      position:sticky; top:16px; align-self:start; background:var(--card);
+      border:1px solid var(--border); border-radius:var(--radius); padding:10px; box-shadow:var(--shadow)
+    }
+    .tablist{display:grid; gap:8px}
+    .tabbtn{
+      background:transparent; color:var(--text); border:1px solid var(--border);
+      border-radius:12px; padding:12px 14px; text-align:left; font-weight:600; cursor:pointer;
+      transition:transform var(--trans), background var(--trans), border-color var(--trans)
+    }
+    .tabbtn[aria-selected="true"]{background:linear-gradient(135deg, hsl(248 86% 66% / .18), hsl(269 72% 60% / .18)); border-color:hsl(248 86% 66% / .45)}
+    .tabbtn:hover{transform:translateY(-1px)}
+    .content{
+      min-height:520px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:clamp(16px,2vw,28px); box-shadow:var(--shadow)
+    }
+    .toolbar{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap}
+    .pill{font-size:12px; color:var(--muted); background:hsl(0 0% 100% / .6); border:1px solid var(--border); border-radius:999px; padding:6px 10px}
+
+    /* Grid / Cards / Form */
+    .grid{display:grid; gap:var(--space); grid-template-columns:repeat(12,minmax(0,1fr))}
+    .col-4{grid-column:span 4} .col-6{grid-column:span 6} .col-8{grid-column:span 8} .col-12{grid-column:1 / -1}
+    @media (max-width:900px){.col-4,.col-6,.col-8{grid-column:1 / -1}}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px}
+    .card h3{margin:0 0 12px; font-size:18px}
+    .muted{color:var(--muted); font-size:13px; margin-top:2px}
+
+    .form{display:grid; gap:14px; grid-template-columns:repeat(12,minmax(0,1fr))}
+    .field{grid-column:span 4; display:grid; gap:6px; max-width:320px; justify-self:start}
+    .field.col-12{grid-column:1 / -1}
+    .field label{font-size:13px; font-weight:700; color:var(--muted)}
+    .field input,.field select{
+      background:hsl(0 0% 100% / .76); border:1px solid var(--border); border-radius:12px;
+      padding:0 14px; font-size:15px; height:var(--control-h); transition:border-color var(--trans), box-shadow var(--trans), transform var(--trans);
+      width:100%;
+    }
+        /* --- Uniform input sizing + Safari number-spin fixes --- */
+    .field.col-12 { max-width: none; }     /* allow full-width where needed (tables, bill, etc.) */
+    /* Cap single-line inputs in other panels even when they span full grid */
+    #panel-cars .field.col-12,
+    #panel-rooms .field.col-12,
+    #panel-customers .field.col-12,
+    #panel-reservations .field.col-12 { max-width: 320px; }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    /* Accessible, per-input focus ring (avoid the big group-outline you saw) */
+    .field input:focus, .field select:focus {
+      outline: 2px solid rgba(102, 126, 234, .55);
+      outline-offset: 2px;
+      box-shadow: none;
+    }
+
+    .actions{display:flex; gap:10px; flex-wrap:wrap}
+    .btn{
+      --bg: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+      background:var(--bg); color:#fff; font-weight:700; border:none; border-radius:12px;
+      padding:0 18px; height:var(--control-h); cursor:pointer; box-shadow:0 6px 20px hsl(248 86% 60% / .38);
+      transition:transform var(--trans), box-shadow var(--trans), filter var(--trans)
+    }
+    .btn:hover{transform:translateY(-1px); filter:brightness(1.04)}
+    .btn:disabled{opacity:.6; cursor:not-allowed; filter:saturate(.8)}
+    .btn.success{--bg:linear-gradient(135deg, hsl(160 84% 39%), hsl(160 72% 34%))}
+    .btn.danger{--bg:linear-gradient(135deg, hsl(0 84% 60%), hsl(0 74% 52%))}
+    .btn.ghost{background:transparent; color:var(--text); border:1px solid var(--border); box-shadow:none}
+
+    /* Tables */
+    table{width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden}
+    thead th{color:#fff; background:linear-gradient(135deg, var(--brand-1), var(--brand-2)); text-align:left; font-size:13px; letter-spacing:.02em; padding:12px 14px}
+    tbody td{padding:14px; border-bottom:1px solid var(--border); background:hsl(0 0% 100% / .66)}
+    tbody tr:hover td{background:hsl(0 0% 100% / .86)}
+
+    /* Toasts */
+    .toasts{position:fixed; right:18px; bottom:18px; display:grid; gap:10px; z-index:50}
+    .toast{background:var(--card); border:1px solid var(--border); border-left:6px solid var(--brand-1); padding:12px 14px; border-radius:12px; box-shadow:var(--shadow); min-width:280px}
+    .toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)}
+
+    /* Skeleton + loading spinners */
+    .skeleton{position:relative; overflow:hidden; background:hsl(0 0% 100% / .4); border-radius:8px; height:40px}
+    .skeleton::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, hsl(0 0% 100% / .35), transparent); transform:translateX(-100%); animation:shimmer 1.2s infinite}
+    @keyframes shimmer{100%{transform:translateX(100%)}}
+    .btn[data-loading="true"]{position:relative}
+    .btn[data-loading="true"]::after{
+      content:""; position:absolute; right:12px; width:16px; height:16px; border-radius:50%;
+      border:2px solid #fff; border-top-color:transparent; animation:spin .8s linear infinite
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    footer{margin-top:var(--space); color:var(--muted); font-size:12px; text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>Travel Reservation System</h1>
+      <div class="subtitle">COMP-512 · Manage Flights, Cars, Rooms, Bundles.</div>
+      <section class="stats" id="stats">
+        <div class="stat"><div class="num" id="statFlights">—</div><div class="label">Flights</div></div>
+        <div class="stat"><div class="num" id="statCars">—</div><div class="label">Cars (locations)</div></div>
+        <div class="stat"><div class="num" id="statRooms">—</div><div class="label">Rooms (locations)</div></div>
+        <div class="stat"><div class="num" id="statCustomers">—</div><div class="label">Customers</div></div>
+        <div class="stat"><div class="num" id="statReservations">—</div><div class="label">Reservations</div></div>
+      </section>
+    </header>
+
+    <main class="shell" role="application">
+      <nav class="sidebar" aria-label="Sections">
+        <div class="tablist" role="tablist" aria-orientation="vertical">
+          <button class="tabbtn" role="tab" id="tab-flights" aria-selected="true" aria-controls="panel-flights">✈️ Flights</button>
+          <button class="tabbtn" role="tab" id="tab-cars" aria-selected="false" aria-controls="panel-cars">🚗 Cars</button>
+          <button class="tabbtn" role="tab" id="tab-rooms" aria-selected="false" aria-controls="panel-rooms">🏨 Rooms</button>
+          <button class="tabbtn" role="tab" id="tab-customers" aria-selected="false" aria-controls="panel-customers">👤 Customers</button>
+          <button class="tabbtn" role="tab" id="tab-reservations" aria-selected="false" aria-controls="panel-reservations">📋 Reservations</button>
+          <button class="tabbtn" role="tab" id="tab-bundle" aria-selected="false" aria-controls="panel-bundle">🎁 Bundle</button>
+          <button class="tabbtn" role="tab" id="tab-activity" aria-selected="false" aria-controls="panel-activity">🧾 Activity Log</button>
+        </div>
+      </nav>
+
+      <section class="content" tabindex="-1">
+        <div class="toolbar">
+          <span class="pill" id="envPill">Environment: local</span>
+        </div>
+
+        <!-- Flights -->
+        <div id="panel-flights" role="tabpanel" aria-labelledby="tab-flights">
+          <div class="grid">
+            <div class="card col-8">
+              <h3>Add Flight</h3>
+              <form class="form" onsubmit="return false;">
+                <div class="field"><label for="addFlightNum">Flight #</label><input id="addFlightNum" type="number" inputmode="numeric" placeholder="e.g. 123" required /></div>
+                <div class="field"><label for="addFlightSeats">Seats</label><input id="addFlightSeats" type="number" min="1" step="1" placeholder="50" required /></div>
+                <div class="field"><label for="addFlightPrice">Price ($)</label><input id="addFlightPrice" type="number" min="0" step="1" placeholder="200" required /></div>
+                <div class="col-12 actions">
+                  <button class="btn" id="btnAddFlight">Add Flight</button>
+                  <button class="btn ghost" type="reset">Reset</button>
+                </div>
+              </form>
+              <div class="muted"></div>
+            </div>
+
+            <div class="card col-4">
+              <h3>Lookup</h3>
+              <div class="form">
+                <div class="field col-12"><label for="queryFlightNum">Flight #</label><input id="queryFlightNum" type="number" placeholder="123" /></div>
+                <div class="actions col-12">
+                  <button class="btn" id="btnSeats">Check Seats</button>
+                  <button class="btn success" id="btnPrice">Check Price</button>
+                </div>
+              </div>
+              <div id="flightQuick" class="muted" aria-live="polite"></div>
+            </div>
+
+            <div class="card col-12">
+              <h3>All Flights</h3>
+              <div id="tblFlightsWrap">
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;"></div>
+              </div>
+            </div>
+
+            <div class="card col-12">
+              <h3>Delete Flight</h3>
+              <div class="form">
+                <div class="field"><label for="deleteFlightNum">Flight #</label><input id="deleteFlightNum" type="number" placeholder="123" /></div>
+                <div class="actions col-12"><button class="btn danger" id="btnDeleteFlight">Delete</button></div>
+              </div>
+              <div class="muted"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cars -->
+        <div id="panel-cars" hidden role="tabpanel" aria-labelledby="tab-cars">
+          <div class="grid">
+            <div class="card col-6">
+              <h3>Add Cars</h3>
+              <div class="form">
+                <div class="field"><label for="addCarLocation">Location</label><input id="addCarLocation" placeholder="Montreal" /></div>
+                <div class="field"><label for="addCarNum"># Cars</label><input id="addCarNum" type="number" min="1" placeholder="10" /></div>
+                <div class="field"><label for="addCarPrice">Price ($)</label><input id="addCarPrice" type="number" min="0" placeholder="50" /></div>
+                <div class="actions col-12"><button class="btn" id="btnAddCar">Add Cars</button></div>
+              </div>
+            </div>
+            <div class="card col-6">
+              <h3>Query Cars</h3>
+              <div class="form">
+                <div class="field col-12"><label for="queryCarLocation">Location</label><input id="queryCarLocation" placeholder="Montreal" /></div>
+                <div class="actions col-12"><button class="btn" id="btnQueryCar">Availability</button><button class="btn success" id="btnQueryCarPrice">Price</button></div>
+              </div>
+              <div id="carQuick" class="muted" aria-live="polite"></div>
+            </div>
+
+            <div class="card col-12">
+              <h3>All Car Locations</h3>
+              <div id="tblCarsWrap">
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;"></div>
+              </div>
+            </div>
+
+            <div class="card col-12">
+              <h3>Delete All Cars at Location</h3>
+              <div class="form">
+                <div class="field"><label for="deleteCarLocation">Location</label><input id="deleteCarLocation" placeholder="Montreal" /></div>
+                <div class="actions col-12"><button class="btn danger" id="btnDeleteCar">Delete</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rooms -->
+        <div id="panel-rooms" hidden role="tabpanel" aria-labelledby="tab-rooms">
+          <div class="grid">
+            <div class="card col-6">
+              <h3>Add Rooms</h3>
+              <div class="form">
+                <div class="field"><label for="addRoomLocation">Location</label><input id="addRoomLocation" placeholder="Montreal" /></div>
+                <div class="field"><label for="addRoomNum"># Rooms</label><input id="addRoomNum" type="number" min="1" placeholder="20" /></div>
+                <div class="field"><label for="addRoomPrice">Price ($)</label><input id="addRoomPrice" type="number" min="0" placeholder="100" /></div>
+                <div class="actions col-12"><button class="btn" id="btnAddRoom">Add Rooms</button></div>
+              </div>
+            </div>
+            <div class="card col-6">
+              <h3>Query Rooms</h3>
+              <div class="form">
+                <div class="field col-12"><label for="queryRoomLocation">Location</label><input id="queryRoomLocation" placeholder="Montreal" /></div>
+                <div class="actions col-12"><button class="btn" id="btnQueryRoom">Availability</button><button class="btn success" id="btnQueryRoomPrice">Price</button></div>
+              </div>
+              <div id="roomQuick" class="muted" aria-live="polite"></div>
+            </div>
+
+            <div class="card col-12">
+              <h3>All Room Locations</h3>
+              <div id="tblRoomsWrap">
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;margin-bottom:8px"></div>
+                <div class="skeleton" style="height:42px;"></div>
+              </div>
+            </div>
+
+            <div class="card col-12">
+              <h3>Delete All Rooms at Location</h3>
+              <div class="form">
+                <div class="field"><label for="deleteRoomLocation">Location</label><input id="deleteRoomLocation" placeholder="Montreal" /></div>
+                <div class="actions col-12"><button class="btn danger" id="btnDeleteRoom">Delete</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customers -->
+        <div id="panel-customers" hidden role="tabpanel" aria-labelledby="tab-customers">
+          <div class="grid">
+            <div class="card col-6">
+              <h3>Create Customer</h3>
+              <div class="form">
+                <div class="field col-12"><label for="newCustomerId">Customer ID (optional)</label><input id="newCustomerId" type="number" placeholder="Leave blank for auto" /></div>
+                <div class="actions col-12"><button class="btn" id="btnNewCustomer">Create</button></div>
+              </div>
+            </div>
+            <div class="card col-6">
+              <h3>View Bill</h3>
+              <div class="form">
+                <div class="field col-12"><label for="queryCustomerId">Customer ID</label><input id="queryCustomerId" type="number" placeholder="e.g. 1" /></div>
+                <div class="actions col-12"><button class="btn" id="btnQueryCustomer">View</button></div>
+              </div>
+              <div class="card" style="margin-top:12px"><pre id="customerBill" style="white-space:pre-wrap;max-height:280px;overflow:auto;margin:0"></pre></div>
+            </div>
+            <div class="card col-12">
+              <h3>Delete Customer</h3>
+              <div class="form">
+                <div class="field"><label for="deleteCustomerId">Customer ID</label><input id="deleteCustomerId" type="number" placeholder="e.g. 1" /></div>
+                <div class="actions col-12"><button class="btn danger" id="btnDeleteCustomer">Delete</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reservations -->
+        <div id="panel-reservations" hidden role="tabpanel" aria-labelledby="tab-reservations">
+          <div class="grid">
+            <div class="card col-4"><h3>Reserve Flight</h3>
+              <div class="form">
+                <div class="field col-12"><label for="reserveFlightCustomer">Customer ID</label><input id="reserveFlightCustomer" type="number" /></div>
+                <div class="field col-12"><label for="reserveFlightNum">Flight #</label><input id="reserveFlightNum" type="number" /></div>
+                <div class="actions col-12"><button class="btn" id="btnReserveFlight">Reserve</button></div>
+              </div>
+            </div>
+            <div class="card col-4"><h3>Reserve Car</h3>
+              <div class="form">
+                <div class="field col-12"><label for="reserveCarCustomer">Customer ID</label><input id="reserveCarCustomer" type="number" /></div>
+                <div class="field col-12"><label for="reserveCarLocation">Location</label><input id="reserveCarLocation" /></div>
+                <div class="actions col-12"><button class="btn" id="btnReserveCar">Reserve</button></div>
+              </div>
+            </div>
+            <div class="card col-4"><h3>Reserve Room</h3>
+              <div class="form">
+                <div class="field col-12"><label for="reserveRoomCustomer">Customer ID</label><input id="reserveRoomCustomer" type="number" /></div>
+                <div class="field col-12"><label for="reserveRoomLocation">Location</label><input id="reserveRoomLocation" /></div>
+                <div class="actions col-12"><button class="btn" id="btnReserveRoom">Reserve</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bundle -->
+        <div id="panel-bundle" hidden role="tabpanel" aria-labelledby="tab-bundle">
+          <div class="grid">
+            <div class="card col-8">
+              <h3>Reserve Complete Package</h3>
+              <div class="form">
+                <div class="field col-4"><label for="bundleCustomerId">Customer ID</label><input id="bundleCustomerId" type="number" /></div>
+                <div class="field col-8"><label for="bundleLocation">Destination (for car & room)</label><input id="bundleLocation" placeholder="Montreal" /></div>
+                <div class="col-12">
+                  <div class="form">
+                    <div class="field col-8"><label for="bundleFlightInput">Flight #</label><input id="bundleFlightInput" type="number" placeholder="Enter flight number" /></div>
+                    <div class="actions col-4"><button class="btn" id="btnAddBundleFlight">➕ Add Flight</button></div>
+                  </div>
+                  <div id="bundleFlightsList" class="muted" style="margin-top:8px"></div>
+                </div>
+                <div class="field"><label for="bundleCar">Include Car?</label><select id="bundleCar"><option value="true">Yes</option><option value="false">No</option></select></div>
+                <div class="field"><label for="bundleRoom">Include Room?</label><select id="bundleRoom"><option value="true">Yes</option><option value="false">No</option></select></div>
+                <div class="actions col-12"><button class="btn success" id="btnReserveBundle">Reserve Bundle</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity -->
+        <div id="panel-activity" hidden role="tabpanel" aria-labelledby="tab-activity">
+          <div class="card">
+            <h3>Recent Activity</h3>
+            <table>
+              <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
+              <tbody id="activityBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Built for COMP-512. Shortcuts:<kbd>⌘/Ctrl</kbd>+<kbd>1–7</kbd> tabs
+    </footer>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    // ---------- Helpers ----------
+    const $ = (s, r=document)=>r.querySelector(s);
+    const $$ = (s, r=document)=>[...r.querySelectorAll(s)];
+    const setLoading = (btn, on)=>{ if(!btn) return; btn.dataset.loading = on ? "true" : "false"; btn.disabled = !!on; };
+    const api = async (endpoint, data) => {
+      try{
+        const res = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data||{})});
+        return await res.json();
+      }catch(e){ return {success:false, message:'Network error: '+e.message}; }
+    };
+    const toast = (msg, type='ok')=>{
+      const t = document.createElement('div'); t.className='toast '+type; t.textContent=msg; $('#toasts').appendChild(t);
+      setTimeout(()=>t.remove(), 4200);
+    };
+    const log = (action, detail)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${new Date().toLocaleTimeString()}</td><td>${action}</td><td>${detail}</td>`;
+      $('#activityBody').prepend(tr);
+    };
+
+    // ---------- Tabs ----------
+    const tabs = $$('.tabbtn'); const panels = ['flights','cars','rooms','customers','reservations','bundle','activity'];
+    function activateTab(i){
+      tabs.forEach((b,idx)=>b.setAttribute('aria-selected', idx===i));
+      panels.forEach((id,idx)=>{ const el = $('#panel-'+id); if(!el) return; el.hidden = idx!==i; if(idx===i) el.focus?.(); });
+      localStorage.setItem('trs.activeTab', i);
+    }
+    tabs.forEach((b,i)=>b.addEventListener('click', ()=>activateTab(i)));
+    document.addEventListener('keydown', (e)=>{
+      if((e.metaKey||e.ctrlKey) && /[1-7]/.test(e.key)){ e.preventDefault(); activateTab(Number(e.key)-1); }
+    });
+    activateTab(Number(localStorage.getItem('trs.activeTab') ?? 0));
+// ---- Session totals & client list (works with your existing endpoints) ----
+const totals = {
+  flights: 0,
+  carLocs: new Set(),
+  roomLocs: new Set(),
+  customers: 0,
+  reservations: 0,
+  hydrated: false  // flips to true if a future /api/stats appears
+};
+const clientFlights = new Map(); // flightNum -> {seats, price}
+const clientCars = new Map();   // location -> {count, price}
+const clientRooms = new Map();  // location -> {count, price}
+
+function updateStatsUI() {
+  const dash = v => (v === 0 && !totals.hydrated ? '—' : v);
+  document.getElementById('statFlights').textContent   = dash(totals.flights);
+  document.getElementById('statCars').textContent      = dash(totals.carLocs.size);
+  document.getElementById('statRooms').textContent     = dash(totals.roomLocs.size);
+  document.getElementById('statCustomers').textContent = dash(totals.customers);
+  document.getElementById('statReservations').textContent = dash(totals.reservations);
+}
+
+// Optional: if you later add /api/stats, this will hydrate the real counts
+async function refreshStats() {
+  const r = await api('/api/stats');
+  if (r?.success) {
+    totals.hydrated = true;
+    const persisted = {
+      flights: Number(r.flights)   || 0,
+      cars: Number(r.cars)         || 0,
+      rooms: Number(r.rooms)       || 0,
+      customers: Number(r.customers)|| 0,
+      reservations: Number(r.reservations) || 0,
+    };
+    const session = {
+      flights: clientFlights.size || totals.flights,
+      cars: totals.carLocs.size,
+      rooms: totals.roomLocs.size,
+      customers: totals.customers,
+      reservations: totals.reservations,
+    };
+    totals.flights      = Math.max(persisted.flights, session.flights);
+    totals.carLocs      = new Set(Array.from({ length: Math.max(persisted.cars, session.cars) }, (_,i)=>i));
+    totals.roomLocs     = new Set(Array.from({ length: Math.max(persisted.rooms, session.rooms) }, (_,i)=>i));
+    totals.customers    = Math.max(persisted.customers, session.customers);
+    totals.reservations = Math.max(persisted.reservations, session.reservations);
+  }
+  updateStatsUI();
+}
+
+function renderFlights() {
+  const wrap = document.getElementById('tblFlightsWrap');
+  if (clientFlights.size === 0) {
+    wrap.innerHTML = '<div class="muted">No flights added this session.</div>';
+    return;
+  }
+  const rows = [...clientFlights.entries()]
+    .map(([num, v]) => `<tr><td>${num}</td><td>${v.seats}</td><td>$${v.price}</td></tr>`)
+    .join('');
+  wrap.innerHTML = `<table><thead><tr><th>Flight #</th><th>Seats</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderCars(){
+  const wrap = document.getElementById('tblCarsWrap');
+  const r = await api('/api/car/list');
+  if(r?.success && Array.isArray(r.rows)){
+    wrap.innerHTML = `<table><thead><tr><th>Location</th><th># Cars</th><th>Price</th></tr></thead><tbody>${r.rows.map(c=>`<tr><td>${c.location}</td><td>${c.count ?? ''}</td><td>${typeof c.price!=="undefined"?`$${c.price}`:''}</td></tr>`).join('')}</tbody></table>`;
+    return;
+  }
+  if(clientCars.size===0){ wrap.innerHTML = '<div class="muted">No cars added this session.</div>'; return; }
+  const rows = [...clientCars.entries()].map(([loc,v])=>`<tr><td>${loc}</td><td>${v.count ?? ''}</td><td>${typeof v.price!=="undefined"?`$${v.price}`:''}</td></tr>`).join('');
+  wrap.innerHTML = `<table><thead><tr><th>Location</th><th># Cars</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function renderRooms(){
+  const wrap = document.getElementById('tblRoomsWrap');
+  const r = await api('/api/room/list');
+  if(r?.success && Array.isArray(r.rows)){
+    wrap.innerHTML = `<table><thead><tr><th>Location</th><th># Rooms</th><th>Price</th></tr></thead><tbody>${r.rows.map(c=>`<tr><td>${c.location}</td><td>${c.count ?? ''}</td><td>${typeof c.price!=="undefined"?`$${c.price}`:''}</td></tr>`).join('')}</tbody></table>`;
+    return;
+  }
+  if(clientRooms.size===0){ wrap.innerHTML = '<div class="muted">No rooms added this session.</div>'; return; }
+  const rows = [...clientRooms.entries()].map(([loc,v])=>`<tr><td>${loc}</td><td>${v.count ?? ''}</td><td>${typeof v.price!=="undefined"?`$${v.price}`:''}</td></tr>`).join('');
+  wrap.innerHTML = `<table><thead><tr><th>Location</th><th># Rooms</th><th>Price</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+
+    $('#btnAddFlight').addEventListener('click', async (e)=>{
+      const btn = e.currentTarget; setLoading(btn, true);
+      const data = { flightNum:+$('#addFlightNum').value, flightSeats:+$('#addFlightSeats').value, flightPrice:+$('#addFlightPrice').value };
+      const r = await api('/api/flight/add', data);
+      setLoading(btn, false);
+      if (r.success) {
+        toast(`Flight ${data.flightNum} added`);
+        log('Flight Added', `#${data.flightNum} · ${data.flightSeats} seats · $${data.flightPrice}`);
+        clientFlights.set(data.flightNum, { seats: data.flightSeats, price: data.flightPrice });
+        totals.flights += 1;
+        renderFlights();
+        updateStatsUI();
+        refreshStats();
+      } else toast(r.message||'Failed','err');
+    });
+
+    $('#btnSeats').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const flightNum = +$('#queryFlightNum').value; if(!flightNum){ setLoading(btn,false); return; }
+      const r = await api('/api/flight/query', { flightNum });
+      setLoading(btn,false);
+      $('#flightQuick').textContent = r.success ? `Flight ${flightNum} has ${r.message} seats available.` : r.message;
+      toast(r.success ? `Seats: ${r.message}` : r.message, r.success ? 'ok' : 'err');
+    });
+
+    $('#btnPrice').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const flightNum = +$('#queryFlightNum').value; if(!flightNum){ setLoading(btn,false); return; }
+      const r = await api('/api/flight/query-price', { flightNum });
+      setLoading(btn,false);
+      $('#flightQuick').textContent = r.success ? `Price per seat: $${r.message}.` : r.message;
+      toast(r.success ? `Price $${r.message}` : r.message, r.success ? 'ok' : 'err');
+    });
+
+    $('#btnDeleteFlight').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; const flightNum = +$('#deleteFlightNum').value; if(!flightNum) return;
+      if(!confirm(`Delete flight ${flightNum}?`)) return;
+      setLoading(btn,true);
+      const r = await api('/api/flight/delete', { flightNum });
+      setLoading(btn,false);
+      toast(r.success ? `Flight ${flightNum} deleted` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        clientFlights.delete(flightNum);
+        totals.flights = Math.max(0, totals.flights - 1);
+        log('Flight Deleted', `#${flightNum}`);
+        renderFlights();
+        updateStatsUI();
+        refreshStats();
+      }
+    });
+
+    // ---------- Cars ----------
+    $('#btnAddCar').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const data = { location:$('#addCarLocation').value.trim(), numCars:+$('#addCarNum').value, price:+$('#addCarPrice').value };
+      const r = await api('/api/car/add', data);
+      setLoading(btn,false);
+      toast(r.success ? `${data.numCars} cars added in ${data.location}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        log('Cars Added', `${data.location} · ${data.numCars} · $${data.price}`);
+        if (data.location){
+          totals.carLocs.add(data.location.toLowerCase());
+          const loc = data.location.toLowerCase();
+          const cur = clientCars.get(loc) || {};
+          clientCars.set(loc, { count: (cur.count||0) + (Number.isFinite(data.numCars)?data.numCars:0), price: data.price ?? cur.price });
+        }
+        updateStatsUI();
+        renderCars();
+        refreshStats();
+      }
+    });
+
+    $('#btnQueryCar').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const location = $('#queryCarLocation').value.trim(); if(!location){ setLoading(btn,false); return; }
+      const r = await api('/api/car/query', { location });
+      setLoading(btn,false);
+      $('#carQuick').textContent = r.success ? `${r.message} cars available in ${location}.` : r.message;
+      toast(r.success ? `${r.message} cars in ${location}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        const loc = $('#queryCarLocation').value.trim().toLowerCase();
+        const cur = clientCars.get(loc) || {};
+        clientCars.set(loc, { count: r.message, price: cur.price });
+        renderCars();
+      }
+    });
+
+    $('#btnQueryCarPrice').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const location = $('#queryCarLocation').value.trim(); if(!location){ setLoading(btn,false); return; }
+      const r = await api('/api/car/query-price', { location });
+      setLoading(btn,false);
+      $('#carQuick').textContent = r.success ? `Cars in ${location} cost $${r.message}.` : r.message;
+      toast(r.success ? `Car price $${r.message}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        const loc = $('#queryCarLocation').value.trim().toLowerCase();
+        const cur = clientCars.get(loc) || {};
+        clientCars.set(loc, { count: cur.count, price: r.message });
+        renderCars();
+      }
+    });
+
+    $('#btnDeleteCar').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; const location = $('#deleteCarLocation').value.trim(); if(!location) return;
+      if(!confirm(`Delete all cars in ${location}?`)) return;
+      setLoading(btn,true);
+      const r = await api('/api/car/delete', { location });
+      setLoading(btn,false);
+      toast(r.success ? `Cars at ${location} deleted` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        log('Cars Deleted', location);
+        if (location){
+          const loc = location.toLowerCase();
+          totals.carLocs.delete(loc);
+          clientCars.delete(loc);
+        }
+        updateStatsUI();
+        renderCars();
+        refreshStats();
+      }
+    });
+
+    // ---------- Rooms ----------
+    $('#btnAddRoom').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const data = { location:$('#addRoomLocation').value.trim(), numRooms:+$('#addRoomNum').value, price:+$('#addRoomPrice').value };
+      const r = await api('/api/room/add', data);
+      setLoading(btn,false);
+      toast(r.success ? `${data.numRooms} rooms added in ${data.location}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        log('Rooms Added', `${data.location} · ${data.numRooms} · $${data.price}`);
+        if (data.location){
+          totals.roomLocs.add(data.location.toLowerCase());
+          const loc = data.location.toLowerCase();
+          const cur = clientRooms.get(loc) || {};
+          clientRooms.set(loc, { count: (cur.count||0) + (Number.isFinite(data.numRooms)?data.numRooms:0), price: data.price ?? cur.price });
+        }
+        updateStatsUI();
+        renderRooms();
+        refreshStats();
+      }
+    });
+
+    $('#btnQueryRoom').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const location = $('#queryRoomLocation').value.trim(); if(!location){ setLoading(btn,false); return; }
+      const r = await api('/api/room/query', { location });
+      setLoading(btn,false);
+      $('#roomQuick').textContent = r.success ? `${r.message} rooms available in ${location}.` : r.message;
+      toast(r.success ? `${r.message} rooms in ${location}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        const loc = $('#queryRoomLocation').value.trim().toLowerCase();
+        const cur = clientRooms.get(loc) || {};
+        clientRooms.set(loc, { count: r.message, price: cur.price });
+        renderRooms();
+      }
+    });
+
+    $('#btnQueryRoomPrice').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const location = $('#queryRoomLocation').value.trim(); if(!location){ setLoading(btn,false); return; }
+      const r = await api('/api/room/query-price', { location });
+      setLoading(btn,false);
+      $('#roomQuick').textContent = r.success ? `Rooms in ${location} cost $${r.message}.` : r.message;
+      toast(r.success ? `Room price $${r.message}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        const loc = $('#queryRoomLocation').value.trim().toLowerCase();
+        const cur = clientRooms.get(loc) || {};
+        clientRooms.set(loc, { count: cur.count, price: r.message });
+        renderRooms();
+      }
+    });
+
+    $('#btnDeleteRoom').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; const location = $('#deleteRoomLocation').value.trim(); if(!location) return;
+      if(!confirm(`Delete all rooms in ${location}?`)) return;
+      setLoading(btn,true);
+      const r = await api('/api/room/delete', { location });
+      setLoading(btn,false);
+      toast(r.success ? `Rooms at ${location} deleted` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        log('Rooms Deleted', location);
+        if (location){
+          const loc = location.toLowerCase();
+          totals.roomLocs.delete(loc);
+          clientRooms.delete(loc);
+        }
+        updateStatsUI();
+        renderRooms();
+        refreshStats();
+      }
+    });
+
+    // ---------- Customers ----------
+    $('#btnNewCustomer').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const cid = $('#newCustomerId').value.trim();
+      const r = await api('/api/customer/new', cid ? {customerId:+cid} : {});
+      setLoading(btn,false);
+      if(r.success){
+        toast(`Customer created · ID ${r.message}`);
+        log('Customer Created', `ID ${r.message}`);
+        totals.customers += 1;
+        updateStatsUI();
+        refreshStats();
+      }
+      else toast(r.message,'err');
+    });
+
+    $('#btnQueryCustomer').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const customerId = +$('#queryCustomerId').value; if(!customerId){ setLoading(btn,false); return; }
+      const r = await api('/api/customer/query', { customerId });
+      setLoading(btn,false);
+      if(r.success){ $('#customerBill').textContent = r.message; toast('Loaded bill'); log('Bill Viewed', `ID ${customerId}`); }
+      else toast(r.message,'err');
+    });
+
+    $('#btnDeleteCustomer').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; const customerId = +$('#deleteCustomerId').value; if(!customerId) return;
+      if(!confirm(`Delete customer ${customerId} and all reservations?`)) return;
+      setLoading(btn,true);
+      const r = await api('/api/customer/delete', { customerId });
+      setLoading(btn,false);
+      toast(r.success ? `Customer ${customerId} deleted` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){
+        log('Customer Deleted', `ID ${customerId}`);
+        totals.customers = Math.max(0, totals.customers - 1);
+        updateStatsUI();
+        refreshStats();
+      }
+    });
+
+    // ---------- Reservations (single) ----------
+    $('#btnReserveFlight').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const data = { customerId:+$('#reserveFlightCustomer').value, flightNum:+$('#reserveFlightNum').value };
+      const r = await api('/api/reservation/flight', data);
+      setLoading(btn,false);
+      toast(r.success ? `Reserved flight ${data.flightNum} for C${data.customerId}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){ totals.reservations += 1; updateStatsUI(); refreshStats(); log('Reserved Flight', `C${data.customerId} · #${data.flightNum}`); }
+    });
+
+    $('#btnReserveCar').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const data = { customerId:+$('#reserveCarCustomer').value, location:$('#reserveCarLocation').value.trim() };
+      const r = await api('/api/reservation/car', data);
+      setLoading(btn,false);
+      toast(r.success ? `Reserved car at ${data.location} for C${data.customerId}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){ totals.reservations += 1; updateStatsUI(); refreshStats(); log('Reserved Car', `C${data.customerId} · ${data.location}`); }
+    });
+
+    $('#btnReserveRoom').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget; setLoading(btn,true);
+      const data = { customerId:+$('#reserveRoomCustomer').value, location:$('#reserveRoomLocation').value.trim() };
+      const r = await api('/api/reservation/room', data);
+      setLoading(btn,false);
+      toast(r.success ? `Reserved room at ${data.location} for C${data.customerId}` : r.message, r.success ? 'ok' : 'err');
+      if(r.success){ totals.reservations += 1; updateStatsUI(); refreshStats(); log('Reserved Room', `C${data.customerId} · ${data.location}`); }
+    });
+
+    // ---------- Bundle ----------
+    const bundleFlights = [];
+    const renderBundleList = ()=>{
+      const el = $('#bundleFlightsList');
+      if(!bundleFlights.length){ el.textContent = 'No flights added.'; }
+      else{
+        el.innerHTML = bundleFlights.map((f,i)=>`<span class="pill">✈️ ${f} <button aria-label="remove flight" style="margin-left:6px;border:none;background:none;cursor:pointer" onclick="removeBundleFlight(${i})">×</button></span>`).join(' ');
+      }
+    };
+    window.removeBundleFlight = (i)=>{ bundleFlights.splice(i,1); renderBundleList(); };
+
+    $('#btnAddBundleFlight').addEventListener('click', ()=>{
+      const n = +$('#bundleFlightInput').value; if(!n) return;
+      if(!bundleFlights.includes(n)) bundleFlights.push(n);
+      $('#bundleFlightInput').value=''; renderBundleList();
+    });
+    $('#btnReserveBundle').addEventListener('click', async (e)=>{
+      const btn=e.currentTarget;
+      if(!bundleFlights.length){ toast('Add at least one flight to bundle','err'); return; }
+      setLoading(btn,true);
+      const data = { customerId:+$('#bundleCustomerId').value, flights:bundleFlights, location:$('#bundleLocation').value.trim(), car:$('#bundleCar').value, room:$('#bundleRoom').value };
+      const r = await api('/api/reservation/bundle', data);
+      setLoading(btn,false);
+      if(r.success){
+        const addCount = (bundleFlights?.length||0) + ($('#bundleCar').value==='true' ? 1 : 0) + ($('#bundleRoom').value==='true' ? 1 : 0);
+        totals.reservations += addCount;
+        updateStatsUI();
+        refreshStats();
+        toast(`Bundle reserved for ${data.customerId}`);
+        log('Reserved Bundle', `C${data.customerId} · ${bundleFlights.length} flights · ${data.location} · car:${data.car} room:${data.room}`);
+        bundleFlights.splice(0); renderBundleList();
+      }
+      else toast(r.message,'err');
+    });
+
+
+
+    // ---------- Initial ----------
+</script>
+<script>
+    function boot(){
+      // aria-selected tab persists; ensure panels align before first paint
+      const idx = Number(localStorage.getItem('trs.activeTab') ?? 0); activateTab(Number.isFinite(idx)?idx:0);
+      renderFlights(); refreshStats(); renderBundleList();
+      updateStatsUI();
+      renderCars();
+      renderRooms();
+    }
+    boot();
+</script>
+</body>
+</html>
