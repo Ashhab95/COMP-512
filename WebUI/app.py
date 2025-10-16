@@ -1,17 +1,11 @@
-"""
-COMP-512 Travel Reservation System - Web UI
-Flask backend that communicates with Java TCP Middleware
-"""
-
 from flask import Flask, render_template, request, jsonify
 import socket
 import json
 
 app = Flask(__name__)
 
-# Configuration - Update these to match your middleware
 MIDDLEWARE_HOST = 'localhost'
-MIDDLEWARE_PORT = 5010  # Your middleware port
+MIDDLEWARE_PORT = 5010
 
 def send_command_to_middleware(method, *args):
     """
@@ -26,7 +20,6 @@ def send_command_to_middleware(method, *args):
         Parsed response from middleware
     """
     try:
-        # Build JSON request exactly like Java TCPClient
         request_data = {
             "method": method,
             "args": list(args)
@@ -35,17 +28,13 @@ def send_command_to_middleware(method, *args):
         
         print(f"\n[DEBUG] Sending: {json_request}")
         
-        # Create TCP socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(10)
         
-        # Connect
         sock.connect((MIDDLEWARE_HOST, MIDDLEWARE_PORT))
         
-        # Send with newline (like out.println() in Java)
         sock.sendall((json_request + '\n').encode('utf-8'))
         
-        # Read response line (like in.readLine() in Java)
         response_file = sock.makefile('r', encoding='utf-8')
         response_str = response_file.readline().strip()
         
@@ -56,14 +45,11 @@ def send_command_to_middleware(method, *args):
         if not response_str:
             return {"success": False, "message": "Empty response from server"}
         
-        # Parse JSON response
         response_json = json.loads(response_str)
         
-        # Check status like Java client does
         status = response_json.get("status")
         
         if status == "ok":
-            # Extract response value
             result = response_json.get("response")
             return {"success": True, "message": str(result), "value": result}
         elif status == "failed":
@@ -259,13 +245,11 @@ def reserve_bundle():
     """Reserve a bundle (flights, car, room) for a customer"""
     data = request.json
     
-    # Build flights list - convert all to strings like Java does
     flights = [str(f) for f in data['flights']]
     
-    # Send to middleware with same format as Java client
     result = send_command_to_middleware("bundle", 
                                         int(data['customerId']), 
-                                        flights,  # Send as list
+                                        flights,
                                         data['location'],
                                         data['car'] == 'true',
                                         data['room'] == 'true')
@@ -281,10 +265,8 @@ def api_stats():
         for n in names:
             if n in g:
                 obj = g[n]
-                # direct dict / set
                 if isinstance(obj, (dict, set)):
                     return len(obj)
-                # object with an inner dict/set attribute
                 for attr in ('data', 'store', 'items', 'map', 'cache'):
                     if hasattr(obj, attr):
                         inner = getattr(obj, attr)

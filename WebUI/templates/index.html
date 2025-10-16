@@ -21,7 +21,7 @@
       --radius: 16px; --radius-sm: 10px; --radius-lg: 24px;
       --space: clamp(16px, 1.2vw + 12px, 28px);
       --grid-max: 1280px;
-      --control-h: 48px; /* <= uniform input/button height */
+      --control-h: 48px;
       --trans: 240ms cubic-bezier(.22,1,.36,1);
     }
     @media (prefers-color-scheme: dark){
@@ -42,7 +42,7 @@
     }
     .wrap{max-width:var(--grid-max); margin-inline:auto; padding:calc(var(--space)*1.25)}
 
-    /* Hero */
+    
     .hero{
       position:relative; border-radius:var(--radius-lg);
       padding:clamp(28px,4vw,56px);
@@ -64,7 +64,7 @@
     .stat .num{font-weight:800; font-size:clamp(24px,2.4vw,36px)}
     .stat .label{color:var(--muted); font-size:13px}
 
-    /* Shell */
+    
     .shell{display:grid; grid-template-columns:240px 1fr; gap:var(--space); margin-top:var(--space)}
     @media (max-width:980px){.shell{grid-template-columns:1fr}}
     .sidebar{
@@ -86,7 +86,7 @@
     .toolbar{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap}
     .pill{font-size:12px; color:var(--muted); background:hsl(0 0% 100% / .6); border:1px solid var(--border); border-radius:999px; padding:6px 10px}
 
-    /* Grid / Cards / Form */
+    
     .grid{display:grid; gap:var(--space); grid-template-columns:repeat(12,minmax(0,1fr))}
     .col-4{grid-column:span 4} .col-6{grid-column:span 6} .col-8{grid-column:span 8} .col-12{grid-column:1 / -1}
     @media (max-width:900px){.col-4,.col-6,.col-8{grid-column:1 / -1}}
@@ -103,9 +103,7 @@
       padding:0 14px; font-size:15px; height:var(--control-h); transition:border-color var(--trans), box-shadow var(--trans), transform var(--trans);
       width:100%;
     }
-        /* --- Uniform input sizing + Safari number-spin fixes --- */
-    .field.col-12 { max-width: none; }     /* allow full-width where needed (tables, bill, etc.) */
-    /* Cap single-line inputs in other panels even when they span full grid */
+    .field.col-12 { max-width: none; }
     #panel-cars .field.col-12,
     #panel-rooms .field.col-12,
     #panel-customers .field.col-12,
@@ -115,7 +113,7 @@
     input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
 
-    /* Accessible, per-input focus ring (avoid the big group-outline you saw) */
+    
     .field input:focus, .field select:focus {
       outline: 2px solid rgba(102, 126, 234, .55);
       outline-offset: 2px;
@@ -123,6 +121,7 @@
     }
 
     .actions{display:flex; gap:10px; flex-wrap:wrap}
+    .actions.align-end{align-self:end}
     .btn{
       --bg: linear-gradient(135deg, var(--brand-1), var(--brand-2));
       background:var(--bg); color:#fff; font-weight:700; border:none; border-radius:12px;
@@ -135,18 +134,18 @@
     .btn.danger{--bg:linear-gradient(135deg, hsl(0 84% 60%), hsl(0 74% 52%))}
     .btn.ghost{background:transparent; color:var(--text); border:1px solid var(--border); box-shadow:none}
 
-    /* Tables */
+    
     table{width:100%; border-collapse:collapse; border-radius:14px; overflow:hidden}
     thead th{color:#fff; background:linear-gradient(135deg, var(--brand-1), var(--brand-2)); text-align:left; font-size:13px; letter-spacing:.02em; padding:12px 14px}
     tbody td{padding:14px; border-bottom:1px solid var(--border); background:hsl(0 0% 100% / .66)}
     tbody tr:hover td{background:hsl(0 0% 100% / .86)}
 
-    /* Toasts */
+    
     .toasts{position:fixed; right:18px; bottom:18px; display:grid; gap:10px; z-index:50}
     .toast{background:var(--card); border:1px solid var(--border); border-left:6px solid var(--brand-1); padding:12px 14px; border-radius:12px; box-shadow:var(--shadow); min-width:280px}
     .toast.ok{border-left-color:var(--success)} .toast.err{border-left-color:var(--danger)}
 
-    /* Skeleton + loading spinners */
+    
     .skeleton{position:relative; overflow:hidden; background:hsl(0 0% 100% / .4); border-radius:8px; height:40px}
     .skeleton::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg, transparent, hsl(0 0% 100% / .35), transparent); transform:translateX(-100%); animation:shimmer 1.2s infinite}
     @keyframes shimmer{100%{transform:translateX(100%)}}
@@ -192,7 +191,7 @@
           <span class="pill" id="envPill">Environment: local</span>
         </div>
 
-        <!-- Flights -->
+        
         <div id="panel-flights" role="tabpanel" aria-labelledby="tab-flights">
           <div class="grid">
             <div class="card col-8">
@@ -241,7 +240,7 @@
           </div>
         </div>
 
-        <!-- Cars -->
+        
         <div id="panel-cars" hidden role="tabpanel" aria-labelledby="tab-cars">
           <div class="grid">
             <div class="card col-6">
@@ -281,7 +280,7 @@
           </div>
         </div>
 
-        <!-- Rooms -->
+        
         <div id="panel-rooms" hidden role="tabpanel" aria-labelledby="tab-rooms">
           <div class="grid">
             <div class="card col-6">
@@ -321,7 +320,7 @@
           </div>
         </div>
 
-        <!-- Customers -->
+        
         <div id="panel-customers" hidden role="tabpanel" aria-labelledby="tab-customers">
           <div class="grid">
             <div class="card col-6">
@@ -349,7 +348,7 @@
           </div>
         </div>
 
-        <!-- Reservations -->
+        
         <div id="panel-reservations" hidden role="tabpanel" aria-labelledby="tab-reservations">
           <div class="grid">
             <div class="card col-4"><h3>Reserve Flight</h3>
@@ -376,7 +375,7 @@
           </div>
         </div>
 
-        <!-- Bundle -->
+        
         <div id="panel-bundle" hidden role="tabpanel" aria-labelledby="tab-bundle">
           <div class="grid">
             <div class="card col-8">
@@ -387,7 +386,7 @@
                 <div class="col-12">
                   <div class="form">
                     <div class="field col-8"><label for="bundleFlightInput">Flight #</label><input id="bundleFlightInput" type="number" placeholder="Enter flight number" /></div>
-                    <div class="actions col-4"><button class="btn" id="btnAddBundleFlight">➕ Add Flight</button></div>
+                    <div class="actions col-4 align-end"><button class="btn" id="btnAddBundleFlight">➕ Add Flight</button></div>
                   </div>
                   <div id="bundleFlightsList" class="muted" style="margin-top:8px"></div>
                 </div>
@@ -399,7 +398,7 @@
           </div>
         </div>
 
-        <!-- Activity -->
+        
         <div id="panel-activity" hidden role="tabpanel" aria-labelledby="tab-activity">
           <div class="card">
             <h3>Recent Activity</h3>
@@ -420,7 +419,7 @@
   <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
   <script>
-    // ---------- Helpers ----------
+    
     const $ = (s, r=document)=>r.querySelector(s);
     const $$ = (s, r=document)=>[...r.querySelectorAll(s)];
     const setLoading = (btn, on)=>{ if(!btn) return; btn.dataset.loading = on ? "true" : "false"; btn.disabled = !!on; };
@@ -440,7 +439,7 @@
       $('#activityBody').prepend(tr);
     };
 
-    // ---------- Tabs ----------
+    
     const tabs = $$('.tabbtn'); const panels = ['flights','cars','rooms','customers','reservations','bundle','activity'];
     function activateTab(i){
       tabs.forEach((b,idx)=>b.setAttribute('aria-selected', idx===i));
@@ -452,18 +451,17 @@
       if((e.metaKey||e.ctrlKey) && /[1-7]/.test(e.key)){ e.preventDefault(); activateTab(Number(e.key)-1); }
     });
     activateTab(Number(localStorage.getItem('trs.activeTab') ?? 0));
-// ---- Session totals & client list (works with your existing endpoints) ----
 const totals = {
   flights: 0,
   carLocs: new Set(),
   roomLocs: new Set(),
   customers: 0,
   reservations: 0,
-  hydrated: false  // flips to true if a future /api/stats appears
+  hydrated: false
 };
-const clientFlights = new Map(); // flightNum -> {seats, price}
-const clientCars = new Map();   // location -> {count, price}
-const clientRooms = new Map();  // location -> {count, price}
+const clientFlights = new Map();
+const clientCars = new Map();
+const clientRooms = new Map();
 
 function updateStatsUI() {
   const dash = v => (v === 0 && !totals.hydrated ? '—' : v);
@@ -474,7 +472,7 @@ function updateStatsUI() {
   document.getElementById('statReservations').textContent = dash(totals.reservations);
 }
 
-// Optional: if you later add /api/stats, this will hydrate the real counts
+    
 async function refreshStats() {
   const r = await api('/api/stats');
   if (r?.success) {
@@ -590,7 +588,7 @@ async function renderRooms(){
       }
     });
 
-    // ---------- Cars ----------
+    
     $('#btnAddCar').addEventListener('click', async (e)=>{
       const btn=e.currentTarget; setLoading(btn,true);
       const data = { location:$('#addCarLocation').value.trim(), numCars:+$('#addCarNum').value, price:+$('#addCarPrice').value };
@@ -661,7 +659,7 @@ async function renderRooms(){
       }
     });
 
-    // ---------- Rooms ----------
+    
     $('#btnAddRoom').addEventListener('click', async (e)=>{
       const btn=e.currentTarget; setLoading(btn,true);
       const data = { location:$('#addRoomLocation').value.trim(), numRooms:+$('#addRoomNum').value, price:+$('#addRoomPrice').value };
@@ -732,7 +730,7 @@ async function renderRooms(){
       }
     });
 
-    // ---------- Customers ----------
+    
     $('#btnNewCustomer').addEventListener('click', async (e)=>{
       const btn=e.currentTarget; setLoading(btn,true);
       const cid = $('#newCustomerId').value.trim();
@@ -772,7 +770,7 @@ async function renderRooms(){
       }
     });
 
-    // ---------- Reservations (single) ----------
+    
     $('#btnReserveFlight').addEventListener('click', async (e)=>{
       const btn=e.currentTarget; setLoading(btn,true);
       const data = { customerId:+$('#reserveFlightCustomer').value, flightNum:+$('#reserveFlightNum').value };
@@ -800,7 +798,7 @@ async function renderRooms(){
       if(r.success){ totals.reservations += 1; updateStatsUI(); refreshStats(); log('Reserved Room', `C${data.customerId} · ${data.location}`); }
     });
 
-    // ---------- Bundle ----------
+    
     const bundleFlights = [];
     const renderBundleList = ()=>{
       const el = $('#bundleFlightsList');
@@ -837,11 +835,10 @@ async function renderRooms(){
 
 
 
-    // ---------- Initial ----------
+    
 </script>
 <script>
     function boot(){
-      // aria-selected tab persists; ensure panels align before first paint
       const idx = Number(localStorage.getItem('trs.activeTab') ?? 0); activateTab(Number.isFinite(idx)?idx:0);
       renderFlights(); refreshStats(); renderBundleList();
       updateStatsUI();
