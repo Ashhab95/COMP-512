@@ -27,8 +27,10 @@ gameid=game-$group-99
 # Remember to start the scripts of corresponding players from the corresponding servers.
 # comment out process3 if you are only playing 2 players, etc.
 # TODO: change to actual server names
-export process1=localhost:401$group
-export process2=localhost:402$group
+#export process1=localhost:401$group
+#export process2=localhost:402$group
+export process1=tr-open-01.cs.mcgill.ca:40110
+export process2=tr-open-02.cs.mcgill.ca:40210
 #export process3=localhost:403$group
 #export process4=localhost:404$group
 #export process5=localhost:405$group

@@ -16,8 +16,7 @@ import java.util.concurrent.atomic.*;
 
 
 
-public class Paxos
-{
+public class Paxos {
 	GCL gcl;
 	FailCheck failCheck;
 	private Logger logger;
@@ -28,11 +27,13 @@ public class Paxos
 
 	private AtomicInteger currentPosition;     // Next position to propose
 	private AtomicInteger proposalCounter;     // Counter for generating unique proposal #s
+	private AtomicInteger nextDeliveryPosition;
+	private ConcurrentHashMap<Integer, Object> pendingDeliveries;
 
 	private ConcurrentHashMap<Integer, InstanceState> instances; 	// Per-position state (one entry per Paxos instance)
 
 	private BlockingQueue<Object> deliveryQueue; // Values that have been accepted and ready for delivery (in order)
-	private BlockingQueue<Object> pendingProposals; // Values waiting to be proposed
+	private BlockingQueue<PendingProposal> pendingProposals;// Values waiting to be proposed
 
 	private Thread receiverThread;      // Reads from GCL and handles messages
 	private Thread proposerThread;      // Runs Paxos consensus
@@ -73,6 +74,10 @@ public class Paxos
 		this.deliveryQueue = new LinkedBlockingQueue<>();
 		this.pendingProposals = new LinkedBlockingQueue<>();
 
+		this.nextDeliveryPosition = new AtomicInteger(1);  // For ordered delivery
+		this.pendingDeliveries = new ConcurrentHashMap<>();
+
+
 		this.running = true;
 
 		this.receiverThread = new Thread(new ReceiverTask(), "Paxos-Receiver");
@@ -84,21 +89,38 @@ public class Paxos
 	}
 
 	// This is what the application layer is going to call to send a message/value, such as the player and the move
-	public void broadcastTOMsg(Object val)
-	{
-		// This is just a place holder.
-		// Extend this to build whatever Paxos logic you need to make sure the messaging system is total order.
-		// Here you will have to ensure that the CALL BLOCKS, and is returned ONLY when a majority (and immediately upon majority) of processes have accepted the value.
-		gcl.broadcastMsg(val);
+	public void broadcastTOMsg(Object val) {
+		logger.info("broadcastTOMsg called with value: " + val);
+
+		// Create wrapper with completion latch
+		PendingProposal proposal = new PendingProposal(val);
+
+		// Queue for proposer thread
+		try {
+			pendingProposals.put(proposal);
+			logger.fine("Queued proposal for consensus");
+		} catch (InterruptedException e) {
+			logger.warning("Interrupted while queuing proposal");
+			return;
+		}
+
+		// BLOCK until majority accepts
+		try {
+			logger.fine("Waiting for consensus to complete...");
+			proposal.completionLatch.await();
+			logger.info("Consensus complete! Returning from broadcastTOMsg");
+		} catch (InterruptedException e) {
+			logger.warning("Interrupted while waiting for consensus");
+		}
 	}
 
 	// This is what the application layer is calling to figure out what is the next message in the total order.
 	// Messages delivered in ALL the processes in the group should deliver this in the same order.
-	public Object acceptTOMsg() throws InterruptedException
-	{
-		// This is just a place holder.
-		GCMessage gcmsg = gcl.readGCMessage();
-		return gcmsg.val;
+	public Object acceptTOMsg() throws InterruptedException {
+		// Simply read from the ordered delivery queue
+		Object value = deliveryQueue.take();
+		logger.fine("acceptTOMsg returning: " + value);
+		return value;
 	}
 
 	private int generateProposalNumber() {
@@ -424,16 +446,40 @@ public class Paxos
 		}
 	}
 
+	private void deliverInOrder() {
+		while (true) {
+			int nextPos = nextDeliveryPosition.get();
+			Object value = pendingDeliveries.get(nextPos);
+
+			if (value == null) {
+				// Gap in sequence - can't deliver yet
+				logger.fine("Waiting for position " + nextPos + " before delivering more");
+				break;
+			}
+
+			// We have the next value in sequence!
+			try {
+				deliveryQueue.put(value);
+				pendingDeliveries.remove(nextPos);
+				nextDeliveryPosition.incrementAndGet();
+
+				logger.info("DELIVERED position " + nextPos + " to application: " + value);
+
+			} catch (InterruptedException e) {
+				logger.warning("Interrupted while delivering value");
+				break;
+			}
+		}
+	}
 	private void deliverValue(int position, Object value) {
 		logger.info("Value CHOSEN for position " + position + ": " + value);
 
-		// For now, just put directly in delivery queue
-		// TODO: In Step 9, we'll ensure ordering
-		try {
-			deliveryQueue.put(value);
-			logger.info("Delivered to application queue: " + value);
-		} catch (InterruptedException e) {
-			logger.warning("Interrupted while delivering value");
+		synchronized (pendingDeliveries) {
+			// Store this value
+			pendingDeliveries.put(position, value);
+
+			// Try to deliver as many in-order values as possible
+			deliverInOrder();
 		}
 	}
 
@@ -537,26 +583,32 @@ public class Paxos
 
 			while (running) {
 				try {
-					// Wait for next value to propose (blocks if queue is empty)
-					Object value = pendingProposals.take();
+					// Wait for next proposal (blocks if queue is empty)
+					PendingProposal proposal = pendingProposals.take();
 
 					int position = currentPosition.get();
 					logger.info("Starting consensus for position " + position +
-							", value: " + value);
+							", value: " + proposal.value);
 
 					// Run Paxos consensus for this position
-					boolean success = runConsensus(position, value);
+					boolean success = runConsensus(position, proposal.value);
 
 					if (success) {
 						logger.info("Consensus SUCCESS for position " + position);
+
+						// Signal the caller that consensus is complete
+						proposal.completionLatch.countDown();
 
 						// Move to next position
 						currentPosition.incrementAndGet();
 					} else {
 						logger.warning("Consensus FAILED for position " + position +
 								", will retry");
-						pendingProposals.put(value);
 
+						// Put proposal back in queue to retry
+						pendingProposals.put(proposal);
+
+						// Small delay before retry to avoid tight loop
 						Thread.sleep(100);
 					}
 
@@ -571,6 +623,15 @@ public class Paxos
 			}
 
 			logger.info("Proposer thread stopped");
+		}
+	}
+	private class PendingProposal {
+		Object value;
+		CountDownLatch completionLatch;
+
+		PendingProposal(Object value) {
+			this.value = value;
+			this.completionLatch = new CountDownLatch(1);
 		}
 	}
 }
