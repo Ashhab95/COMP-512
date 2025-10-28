@@ -83,6 +83,24 @@ public class Paxos
 		logger.info("Paxos threads started");
 	}
 
+	// This is what the application layer is going to call to send a message/value, such as the player and the move
+	public void broadcastTOMsg(Object val)
+	{
+		// This is just a place holder.
+		// Extend this to build whatever Paxos logic you need to make sure the messaging system is total order.
+		// Here you will have to ensure that the CALL BLOCKS, and is returned ONLY when a majority (and immediately upon majority) of processes have accepted the value.
+		gcl.broadcastMsg(val);
+	}
+
+	// This is what the application layer is calling to figure out what is the next message in the total order.
+	// Messages delivered in ALL the processes in the group should deliver this in the same order.
+	public Object acceptTOMsg() throws InterruptedException
+	{
+		// This is just a place holder.
+		GCMessage gcmsg = gcl.readGCMessage();
+		return gcmsg.val;
+	}
+
 	private int generateProposalNumber() {
 		int counter = proposalCounter.incrementAndGet();
 		int propNum = (counter * allProcesses.length) + processId;
@@ -96,29 +114,166 @@ public class Paxos
 	private void handlePrepare(PrepareMsg msg, String sender) {
 		logger.fine("handlePrepare from " + sender + ": " + msg);
 
-		// TODO: Implement in Step 6
-		// For now, just log it
+		// Failure point: immediately when receiving propose
+		failCheck.checkFailure(FailCheck.FailureType.RECEIVEPROPOSE);
+
+		// Get state for this position
+		InstanceState state = getInstanceState(msg.position);
+
+		synchronized (state) {
+			// Check if this proposal number is higher than any we've promised
+			if (msg.proposalNum > state.promisedProposalNum) {
+				// Accept this prepare - update our promise
+				state.promisedProposalNum = msg.proposalNum;
+
+				logger.info("Promising to proposal #" + msg.proposalNum +
+						" for position " + msg.position);
+
+				// Send PROMISE back with any previously accepted value
+				PromiseMsg promise = new PromiseMsg(
+						msg.position,
+						msg.proposalNum,
+						state.acceptedValue,           // null if we haven't accepted anything
+						state.acceptedProposalNum      // -1 if we haven't accepted anything
+				);
+
+				gcl.sendMsg(promise, sender);
+
+				// Failure point: after sending vote
+				failCheck.checkFailure(FailCheck.FailureType.AFTERSENDVOTE);
+
+				logger.fine("Sent PROMISE to " + sender + " for position " + msg.position);
+
+			} else {
+				// Reject - this proposal number is too low
+				logger.fine("Rejecting PREPARE from " + sender +
+						" (proposal #" + msg.proposalNum +
+						" <= promised #" + state.promisedProposalNum + ")");
+				// We just ignore it (don't send anything back)
+			}
+		}
 	}
 
 	private void handlePromise(PromiseMsg msg, String sender) {
 		logger.fine("handlePromise from " + sender + ": " + msg);
 
-		// TODO: Implement in Step 6
-		// For now, just log it
+		// Get state for this position
+		InstanceState state = getInstanceState(msg.position);
+
+		synchronized (state) {
+			// Add this sender to our set of promises
+			boolean isNew = state.promisesReceived.add(sender);
+
+			if (!isNew) {
+				// Already got a promise from this sender, ignore duplicate
+				logger.fine("Duplicate promise from " + sender + ", ignoring");
+				return;
+			}
+
+			logger.info("Received PROMISE from " + sender +
+					" for position " + msg.position +
+					" (total: " + state.promisesReceived.size() + "/" + allProcesses.length + ")");
+
+			// Check if they had a previously accepted value
+			if (msg.acceptedValue != null &&
+					msg.acceptedProposalNum > state.acceptedProposalNum) {
+				// This promise contains a value that was previously accepted
+				// We MUST use this value instead of our own (Paxos rule!)
+				state.acceptedValue = msg.acceptedValue;
+				state.acceptedProposalNum = msg.acceptedProposalNum;
+
+				logger.info("Promise contains previously accepted value: " +
+						msg.acceptedValue +
+						" (from proposal #" + msg.acceptedProposalNum + ")");
+			}
+
+			// Check if we have majority
+			if (state.promisesReceived.size() >= majority) {
+				logger.info("*** MAJORITY PROMISES RECEIVED for position " + msg.position +
+						" (" + state.promisesReceived.size() + "/" + allProcesses.length + ") ***");
+
+				// Signal runPhase1 that we got majority
+				if (state.promiseLatch != null) {
+					state.promiseLatch.countDown();
+				}
+
+				// Failure point: after becoming leader
+				failCheck.checkFailure(FailCheck.FailureType.AFTERBECOMINGLEADER);
+			}
+		}
 	}
 
 	private void handlePropose(ProposeMsg msg, String sender) {
-		logger.fine("handlePropose from " + sender + ": " + msg);
+	logger.fine("handlePropose from " + sender + ": " + msg);
 
-		// TODO: Implement in Step 7
-		// For now, just log it
+	// Get state for this position
+	InstanceState state = getInstanceState(msg.position);
+
+	synchronized (state) {
+		// Check if proposal number is >= what we promised
+		if (msg.proposalNum >= state.promisedProposalNum) {
+			// Accept this value
+			state.acceptedValue = msg.value;
+			state.acceptedProposalNum = msg.proposalNum;
+
+			logger.info("ACCEPTING value for position " + msg.position +
+					" with proposal #" + msg.proposalNum +
+					", value: " + msg.value);
+
+			// Send ACCEPT message back
+			AcceptMsg accept = new AcceptMsg(msg.position, msg.proposalNum, msg.value);
+			gcl.sendMsg(accept, sender);
+
+			logger.fine("Sent ACCEPT to " + sender + " for position " + msg.position);
+
+			// CRITICAL: Deliver to application queue
+			// Only deliver once per position
+			if (!state.delivered) {
+				state.delivered = true;
+				deliverValue(msg.position, msg.value);
+			}
+
+		} else {
+			// Reject - proposal number is too low
+			logger.fine("Rejecting PROPOSE from " + sender +
+					" (proposal #" + msg.proposalNum +
+					" < promised #" + state.promisedProposalNum + ")");
+			// We just ignore it (don't send anything back)
+		}
 	}
+}
 
 	private void handleAccept(AcceptMsg msg, String sender) {
 		logger.fine("handleAccept from " + sender + ": " + msg);
 
-		// TODO: Implement in Step 7
-		// For now, just log it
+		// Get state for this position
+		InstanceState state = getInstanceState(msg.position);
+
+		synchronized (state) {
+			// Add this sender to our set of accepts
+			boolean isNew = state.acceptsReceived.add(sender);
+
+			if (!isNew) {
+				// Already got an accept from this sender, ignore duplicate
+				logger.fine("Duplicate accept from " + sender + ", ignoring");
+				return;
+			}
+
+			logger.info("Received ACCEPT from " + sender +
+					" for position " + msg.position +
+					" (total: " + state.acceptsReceived.size() + "/" + allProcesses.length + ")");
+
+			// Check if we have majority
+			if (state.acceptsReceived.size() >= majority) {
+				logger.info("*** MAJORITY ACCEPTS RECEIVED for position " + msg.position +
+						" (" + state.acceptsReceived.size() + "/" + allProcesses.length + ") ***");
+
+				// Signal runPhase2 that we got majority
+				if (state.acceptLatch != null) {
+					state.acceptLatch.countDown();
+				}
+			}
+		}
 	}
 
 	private boolean runConsensus(int position, Object value) {
@@ -188,10 +343,41 @@ public class Paxos
 		// Get or create state for this position
 		InstanceState state = getInstanceState(position);
 
-		// TODO: Implement in Step 6
-		// For now, just return false so we can test the structure
-		logger.warning("Phase 1 not implemented yet - returning false");
-		return false;
+		// Reset state for this phase
+		synchronized (state) {
+			state.promisesReceived.clear();
+			state.acceptedValue = null;      // Will be updated from promises
+			state.acceptedProposalNum = -1;
+
+			// Create latch to wait for majority
+			state.promiseLatch = new CountDownLatch(1);
+		}
+
+		// Create and send PREPARE message to ALL processes
+		PrepareMsg prepare = new PrepareMsg(position, proposalNum);
+		gcl.broadcastMsg(prepare);
+
+		// Failure point: after sending proposal to become leader
+		failCheck.checkFailure(FailCheck.FailureType.AFTERSENDPROPOSE);
+
+		logger.info("Sent PREPARE for position " + position + " with proposal #" + proposalNum);
+
+		// Wait for majority (with timeout)
+		try {
+			boolean gotMajority = state.promiseLatch.await(3, TimeUnit.SECONDS);
+
+			if (gotMajority) {
+				logger.info("Phase 1 SUCCESS: Got majority promises for position " + position);
+				return true;
+			} else {
+				logger.warning("Phase 1 TIMEOUT: Didn't get majority promises for position " + position);
+				return false;
+			}
+
+		} catch (InterruptedException e) {
+			logger.warning("Phase 1 interrupted");
+			return false;
+		}
 	}
 
 	private boolean runPhase2(int position, int proposalNum, Object value) {
@@ -201,33 +387,58 @@ public class Paxos
 		// Get state for this position
 		InstanceState state = getInstanceState(position);
 
-		// TODO: Implement in Step 7
-		// For now, just return false so we can test the structure
-		logger.warning("Phase 2 not implemented yet - returning false");
-		return false;
+		// Reset state for this phase
+		synchronized (state) {
+			state.acceptsReceived.clear();
+
+			// Create latch to wait for majority
+			state.acceptLatch = new CountDownLatch(1);
+		}
+
+		// Create and send PROPOSE message to ALL processes
+		ProposeMsg propose = new ProposeMsg(position, proposalNum, value);
+		gcl.broadcastMsg(propose);
+
+		logger.info("Sent PROPOSE for position " + position +
+				" with proposal #" + proposalNum + ", value: " + value);
+
+		// Wait for majority (with timeout)
+		try {
+			boolean gotMajority = state.acceptLatch.await(3, TimeUnit.SECONDS);
+
+			if (gotMajority) {
+				logger.info("Phase 2 SUCCESS: Got majority accepts for position " + position);
+
+				// Failure point: after majority accepted the value
+				failCheck.checkFailure(FailCheck.FailureType.AFTERVALUEACCEPT);
+
+				return true;
+			} else {
+				logger.warning("Phase 2 TIMEOUT: Didn't get majority accepts for position " + position);
+				return false;
+			}
+
+		} catch (InterruptedException e) {
+			logger.warning("Phase 2 interrupted");
+			return false;
+		}
+	}
+
+	private void deliverValue(int position, Object value) {
+		logger.info("Value CHOSEN for position " + position + ": " + value);
+
+		// For now, just put directly in delivery queue
+		// TODO: In Step 9, we'll ensure ordering
+		try {
+			deliveryQueue.put(value);
+			logger.info("Delivered to application queue: " + value);
+		} catch (InterruptedException e) {
+			logger.warning("Interrupted while delivering value");
+		}
 	}
 
 	private InstanceState getInstanceState(int position) {
 		return instances.computeIfAbsent(position, k -> new InstanceState());
-	}
-
-
-	// This is what the application layer is going to call to send a message/value, such as the player and the move
-	public void broadcastTOMsg(Object val)
-	{
-		// This is just a place holder.
-		// Extend this to build whatever Paxos logic you need to make sure the messaging system is total order.
-		// Here you will have to ensure that the CALL BLOCKS, and is returned ONLY when a majority (and immediately upon majority) of processes have accepted the value.
-		gcl.broadcastMsg(val);
-	}
-
-	// This is what the application layer is calling to figure out what is the next message in the total order.
-	// Messages delivered in ALL the processes in the group should deliver this in the same order.
-	public Object acceptTOMsg() throws InterruptedException
-	{
-		// This is just a place holder.
-		GCMessage gcmsg = gcl.readGCMessage();
-		return gcmsg.val;
 	}
 
 	// Add any of your own shutdown code into this method.
