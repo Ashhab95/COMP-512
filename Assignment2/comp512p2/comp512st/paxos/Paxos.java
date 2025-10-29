@@ -300,6 +300,13 @@ public class Paxos {
 		// Keep trying until success (or shutdown)
 		while (running) {
 			attempt++;
+			InstanceState state = getInstanceState(position);
+			synchronized (state) {
+				if (state.delivered) {
+					logger.info("Position " + position + " already decided by another process, aborting consensus");
+					return true;  // Success! (someone else got it)
+				}
+			}
 			try {
 				logger.fine("Consensus attempt " + attempt + " for position " + position);
 
