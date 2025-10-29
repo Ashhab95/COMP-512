@@ -596,8 +596,6 @@ public class Paxos {
 					if (success) {
 						logger.info("Consensus SUCCESS for position " + position);
 
-						// Move to next position
-						currentPosition.incrementAndGet();
 
 						// Signal the waiting broadcastTOMsg call
 						proposal.completionLatch.countDown();
