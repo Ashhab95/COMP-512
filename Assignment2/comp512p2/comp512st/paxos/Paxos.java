@@ -324,7 +324,6 @@ public class Paxos {
 				}
 
 				// PHASE 2: Propose/Accept
-				InstanceState state = getInstanceState(position);
 				Object valueToPropose;
 
 				synchronized (state) {
