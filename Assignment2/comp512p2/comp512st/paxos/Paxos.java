@@ -226,44 +226,40 @@ public class Paxos {
 	}
 
 	private void handlePropose(ProposeMsg msg, String sender) {
-	logger.fine("handlePropose from " + sender + ": " + msg);
+		logger.fine("handlePropose from " + sender + ": " + msg);
 
-	// Get state for this position
-	InstanceState state = getInstanceState(msg.position);
+		InstanceState state = getInstanceState(msg.position);
 
-	synchronized (state) {
-		// Check if proposal number is >= what we promised
-		if (msg.proposalNum >= state.promisedProposalNum) {
-			// Accept this value
-			state.acceptedValue = msg.value;
-			state.acceptedProposalNum = msg.proposalNum;
+		synchronized (state) {
+			if (msg.proposalNum >= state.promisedProposalNum) {
+				state.acceptedValue = msg.value;
+				state.acceptedProposalNum = msg.proposalNum;
 
-			logger.info("ACCEPTING value for position " + msg.position +
-					" with proposal #" + msg.proposalNum +
-					", value: " + msg.value);
+				logger.info("ACCEPTING value for position " + msg.position +
+						" with proposal #" + msg.proposalNum +
+						", value: " + msg.value);
 
-			// Send ACCEPT message back
-			AcceptMsg accept = new AcceptMsg(msg.position, msg.proposalNum, msg.value);
-			gcl.sendMsg(accept, sender);
+				AcceptMsg accept = new AcceptMsg(msg.position, msg.proposalNum, msg.value);
+				gcl.sendMsg(accept, sender);
 
-			logger.fine("Sent ACCEPT to " + sender + " for position " + msg.position);
+				logger.fine("Sent ACCEPT to " + sender + " for position " + msg.position);
 
-			// CRITICAL: Deliver to application queue
-			// Only deliver once per position
-			if (!state.delivered) {
-				state.delivered = true;
-				deliverValue(msg.position, msg.value);
+				if (!state.delivered) {
+					state.delivered = true;
+					deliverValue(msg.position, msg.value);
+
+					// ✅ FIX: Update currentPosition when accepting from others
+					currentPosition.updateAndGet(current -> Math.max(current, msg.position + 1));
+					logger.fine("Updated currentPosition to " + currentPosition.get());
+				}
+
+			} else {
+				logger.fine("Rejecting PROPOSE from " + sender +
+						" (proposal #" + msg.proposalNum +
+						" < promised #" + state.promisedProposalNum + ")");
 			}
-
-		} else {
-			// Reject - proposal number is too low
-			logger.fine("Rejecting PROPOSE from " + sender +
-					" (proposal #" + msg.proposalNum +
-					" < promised #" + state.promisedProposalNum + ")");
-			// We just ignore it (don't send anything back)
 		}
 	}
-}
 
 	private void handleAccept(AcceptMsg msg, String sender) {
 		logger.fine("handleAccept from " + sender + ": " + msg);
@@ -299,14 +295,15 @@ public class Paxos {
 	}
 
 	private boolean runConsensus(int position, Object value) {
-		// Try up to 5 times with increasing proposal numbers
-		for (int attempt = 1; attempt <= 5; attempt++) {
+		int attempt = 0;
+
+		// Keep trying until success (or shutdown)
+		while (running) {
+			attempt++;
 			try {
 				logger.fine("Consensus attempt " + attempt + " for position " + position);
 
-				// Generate unique proposal number
 				int proposalNum = generateProposalNumber();
-
 
 				// PHASE 1: Prepare/Promise
 				logger.fine("Phase 1: Sending PREPARE with proposal #" + proposalNum);
@@ -315,23 +312,19 @@ public class Paxos {
 
 				if (!phase1Success) {
 					logger.fine("Phase 1 failed, retrying with higher proposal number");
-					Thread.sleep(50 * attempt); // Exponential backoff
+					Thread.sleep(50 * Math.min(attempt, 10)); // Exponential backoff with cap
 					continue;
 				}
 
-
 				// PHASE 2: Propose/Accept
-				// Check if we need to use a different value (from promises)
 				InstanceState state = getInstanceState(position);
 				Object valueToPropose;
 
 				synchronized (state) {
 					if (state.acceptedValue != null) {
-						// Must use previously accepted value
 						valueToPropose = state.acceptedValue;
 						logger.info("Using previously accepted value: " + valueToPropose);
 					} else {
-						// Use our original value
 						valueToPropose = value;
 					}
 				}
@@ -345,17 +338,19 @@ public class Paxos {
 					return true;
 				} else {
 					logger.fine("Phase 2 failed, retrying");
-					Thread.sleep(50 * attempt); // Exponential backoff
+					Thread.sleep(50 * Math.min(attempt, 10));
 				}
 
 			} catch (InterruptedException e) {
-				logger.warning("Consensus interrupted");
-				return false;
+				if (!running) {
+					logger.warning("Consensus interrupted during shutdown");
+					return false;
+				}
+				logger.warning("Consensus interrupted, continuing...");
 			}
 		}
 
-		// After 5 attempts, give up for now
-		logger.severe("Consensus failed after 5 attempts for position " + position);
+		logger.warning("Consensus stopped due to shutdown for position " + position);
 		return false;
 	}
 
@@ -583,33 +578,27 @@ public class Paxos {
 
 			while (running) {
 				try {
-					// Wait for next proposal (blocks if queue is empty)
 					PendingProposal proposal = pendingProposals.take();
 
 					int position = currentPosition.get();
 					logger.info("Starting consensus for position " + position +
 							", value: " + proposal.value);
 
-					// Run Paxos consensus for this position
+					// Run consensus - this now retries indefinitely until success
 					boolean success = runConsensus(position, proposal.value);
 
 					if (success) {
 						logger.info("Consensus SUCCESS for position " + position);
 
-						// Signal the caller that consensus is complete
-						proposal.completionLatch.countDown();
-
 						// Move to next position
 						currentPosition.incrementAndGet();
+
+						// Signal the waiting broadcastTOMsg call
+						proposal.completionLatch.countDown();
 					} else {
-						logger.warning("Consensus FAILED for position " + position +
-								", will retry");
-
-						// Put proposal back in queue to retry
-						pendingProposals.put(proposal);
-
-						// Small delay before retry to avoid tight loop
-						Thread.sleep(100);
+						// This only happens during shutdown
+						logger.warning("Consensus stopped for position " + position);
+						proposal.completionLatch.countDown(); // Unblock the caller
 					}
 
 				} catch (InterruptedException e) {
