@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #TODO set this to where your code and jar file root dir is
-BASEDIR=$HOME/comp512/p2
+BASEDIR=/home/2023/krahma13/COMP-512/Assignment2/comp512p2
 
 #TODO update your group number here in place of XX
 group=xx
