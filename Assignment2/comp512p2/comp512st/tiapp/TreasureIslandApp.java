@@ -129,10 +129,10 @@ public class TreasureIslandApp implements Runnable
 
 			switch(cmd)
 			{
-				case "L":
-				case "R":
-				case "U":
-				case "D": // Capture the move and broadcast it to everyone along with the player number.
+				case "A":
+				case "D":
+				case "W":
+				case "S": // Capture the move and broadcast it to everyone along with the player number.
 					// Remember, this should block till this move has been accepted by the majority.
 					//	The logic for that should be built into the paxos module.
 					paxos.broadcastTOMsg(new Object[]{ playerNum, cmd.charAt(0) });
