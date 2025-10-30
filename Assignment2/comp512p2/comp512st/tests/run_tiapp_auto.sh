@@ -4,7 +4,7 @@
 BASEDIR=/home/2023/krahma13/COMP-512/Assignment2/comp512p2
 
 #TODO update your group number here in place of XX
-group=xx
+group=10
 
 #TODO Optional
 # this will always generate the same game island. Change the last digits to any number if you want to change it to a different island map. Otherwise leave it as it is.
